@@ -27,9 +27,17 @@ func (s *SliceStack[E]) Pop() (E, bool) {
 	return elem, true
 }
 
+func (s *SliceStack[E]) Peek() (E, bool) {
+	if len(s.slice) == 0 {
+		return *new(E), false
+	}
+
+	return s.slice[len(s.slice)-1], true
+}
+
 func (s *SliceStack[E]) Each(f func(elem E)) {
-	for _, elem := range s.slice {
-		f(elem)
+	for i := len(s.slice) - 1; i >= 0; i-- {
+		f(s.slice[i])
 	}
 }
 
@@ -56,7 +64,7 @@ func (ls *ListStack[E]) Push(elem E) {
 }
 
 func (ls *ListStack[E]) Pop() (E, bool) {
-	if ls.len == 0 {
+	if ls.Len() == 0 {
 		return *new(E), false
 	}
 
@@ -65,6 +73,14 @@ func (ls *ListStack[E]) Pop() (E, bool) {
 	ls.len--
 
 	return elem, true
+}
+
+func (ls *ListStack[E]) Peek() (E, bool) {
+	if ls.Len() == 0 {
+		return *new(E), false
+	}
+
+	return ls.first.data, true
 }
 
 func (ls *ListStack[E]) Each(f func(elem E)) {

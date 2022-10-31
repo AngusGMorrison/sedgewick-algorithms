@@ -130,20 +130,70 @@ func Test_SliceStack_Pop(t *testing.T) {
 	}
 }
 
-func Test_Stack_Each(t *testing.T) {
+func Test_SliceStack_Peek(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name  string
-		slice []int
+		name     string
+		slice    []int
+		wantElem int
+		wantOK   bool
 	}{
 		{
-			name:  "stack is empty",
-			slice: nil,
+			name:     "stack is empty",
+			slice:    []int{},
+			wantElem: 0,
+			wantOK:   false,
 		},
 		{
-			name:  "stack is populated",
-			slice: []int{1, 2},
+			name:     "stack is populated",
+			slice:    []int{1, 2},
+			wantElem: 2,
+			wantOK:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			initialSlice := make([]int, len(tc.slice))
+			copy(initialSlice, tc.slice)
+			stack := &SliceStack[int]{slice: tc.slice}
+
+			gotElem, gotOK := stack.Peek()
+			if gotElem != tc.wantElem {
+				t.Errorf("want elem %d, got %d", tc.wantElem, gotElem)
+			}
+			if gotOK != tc.wantOK {
+				t.Errorf("want OK %t, got %t", tc.wantOK, gotOK)
+			}
+			if !reflect.DeepEqual(stack.slice, initialSlice) {
+				t.Errorf("want stack\n\t%v,\ngot\n\t%v", initialSlice, stack.slice)
+			}
+		})
+	}
+}
+
+func Test_SliceStack_Each(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name           string
+		slice          []int
+		wantCalledWith []int
+	}{
+		{
+			name:           "stack is empty",
+			slice:          nil,
+			wantCalledWith: nil,
+		},
+		{
+			name:           "stack is populated",
+			slice:          []int{1, 2},
+			wantCalledWith: []int{2, 1},
 		},
 	}
 
@@ -157,10 +207,10 @@ func Test_Stack_Each(t *testing.T) {
 			stack := &SliceStack[int]{slice: tc.slice}
 
 			stack.Each(rec.recordEach)
-			if !reflect.DeepEqual(tc.slice, rec.calledWith) {
+			if !reflect.DeepEqual(tc.wantCalledWith, rec.calledWith) {
 				t.Errorf(
-					"want (*SliceStack).Each to have called the recorder with\n\t%v,\ngot\n\t%v",
-					tc.slice, rec.calledWith,
+					"want (*SliceStack).Each to have called the recorder with\n\t%v (len %d),\ngot\n\t%v (len %d)",
+					tc.wantCalledWith, len(tc.wantCalledWith), rec.calledWith, len(rec.calledWith),
 				)
 			}
 		})
@@ -339,6 +389,57 @@ func Test_ListStack_Pop(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ListStack_Peek(t *testing.T) {
+	t.Parallel()
+
+	t.Run("stack is empty", func(t *testing.T) {
+		t.Parallel()
+
+		stack := &ListStack[int]{}
+		gotElem, gotOK := stack.Peek()
+		if gotElem != 0 {
+			t.Errorf("want elem 0, got %d", gotElem)
+		}
+		if gotOK {
+			t.Errorf("want OK false, got true")
+		}
+		if stack.first != nil {
+			t.Errorf("want nil first element, got %+v", stack.first)
+		}
+		if stack.len != 0 {
+			t.Errorf("want len 0, got %d", stack.len)
+		}
+	})
+
+	t.Run("stack is populated", func(t *testing.T) {
+		t.Parallel()
+
+		second := &node[int]{data: 2}
+		first := &node[int]{
+			data: 1,
+			next: second,
+		}
+		stack := &ListStack[int]{
+			len:   2,
+			first: &(*first),
+		}
+
+		gotElem, gotOK := stack.Peek()
+		if gotElem != first.data {
+			t.Errorf("want elem %d, got %d", first.data, gotElem)
+		}
+		if !gotOK {
+			t.Errorf("want OK true, got false")
+		}
+		if !reflect.DeepEqual(stack.first, first) {
+			t.Errorf("want first node %+v, got %+v", first, stack.first)
+		}
+		if stack.len != 2 {
+			t.Errorf("want len 2, got %d", stack.len)
+		}
+	})
 }
 
 func Test_ListStack_Each(t *testing.T) {
