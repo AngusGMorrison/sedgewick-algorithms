@@ -1,5 +1,10 @@
 package stack
 
+import (
+	"fmt"
+	"strings"
+)
+
 // SliceStack implements a generic stack backed by a slice.
 type SliceStack[E any] struct {
 	slice []E
@@ -51,6 +56,42 @@ func NewListStack[E any]() *ListStack[E] {
 	return &ListStack[E]{}
 }
 
+// Q1.3.42
+func (ls *ListStack[E]) Clone() *ListStack[E] {
+	clone := &ListStack[E]{len: ls.len}
+	if ls.len == 0 {
+		return clone
+	}
+
+	clone.first = &node[E]{data: ls.first.data}
+	for origCur, clonePrev := ls.first.next, clone.first; origCur != nil; origCur, clonePrev = origCur.next, clonePrev.next {
+		clonePrev.next = &node[E]{
+			data: origCur.data,
+		}
+	}
+
+	return clone
+}
+
+func (ls *ListStack[E]) CloneRecursive() *ListStack[E] {
+	var cloneFunc func(n *node[E]) *node[E]
+	cloneFunc = func(n *node[E]) *node[E] {
+		if n == nil {
+			return nil
+		}
+
+		return &node[E]{
+			data: n.data,
+			next: cloneFunc(n.next),
+		}
+	}
+
+	return &ListStack[E]{
+		len:   ls.len,
+		first: cloneFunc(ls.first),
+	}
+}
+
 func (ls *ListStack[E]) Len() int {
 	return ls.len
 }
@@ -87,6 +128,20 @@ func (ls *ListStack[E]) Each(f func(elem E)) {
 	for cur := ls.first; cur != nil; cur = cur.next {
 		f(cur.data)
 	}
+}
+
+func (ls *ListStack[E]) String() string {
+	if ls.len == 0 {
+		return "{}"
+	}
+
+	var builder strings.Builder
+	_, _ = fmt.Fprintf(&builder, "%v", ls.first.data)
+	for cur := ls.first.next; cur != nil; cur = cur.next {
+		_, _ = fmt.Fprintf(&builder, " -> %v", ls.first.data)
+	}
+
+	return builder.String()
 }
 
 type node[E any] struct {

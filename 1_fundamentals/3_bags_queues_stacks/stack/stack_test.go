@@ -263,6 +263,108 @@ func Test_ListStack_Len(t *testing.T) {
 	}
 }
 
+func Test_ListStack_Clone(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		newStack func() *ListStack[int]
+	}{
+		{
+			name: "original stack is empty",
+			newStack: func() *ListStack[int] {
+				return NewListStack[int]()
+			},
+		},
+		{
+			name: "original stack has one node",
+			newStack: func() *ListStack[int] {
+				n := &node[int]{data: 1}
+				return &ListStack[int]{
+					len:   1,
+					first: n,
+				}
+			},
+		},
+		{
+			name: "original stack has more than one node",
+			newStack: func() *ListStack[int] {
+				n1 := &node[int]{data: 1}
+				n2 := &node[int]{data: 2}
+				n1.next = n2
+				return &ListStack[int]{
+					len:   1,
+					first: n1,
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			original := tc.newStack()
+			if clone := original.Clone(); !reflect.DeepEqual(original, clone) {
+				t.Errorf("\nwant list\n\t%s\ngot\n\t%s", original, clone)
+			}
+		})
+	}
+}
+
+func Test_ListStack_CloneRecursive(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		newStack func() *ListStack[int]
+	}{
+		{
+			name: "original stack is empty",
+			newStack: func() *ListStack[int] {
+				return NewListStack[int]()
+			},
+		},
+		{
+			name: "original stack has one node",
+			newStack: func() *ListStack[int] {
+				n := &node[int]{data: 1}
+				return &ListStack[int]{
+					len:   1,
+					first: n,
+				}
+			},
+		},
+		{
+			name: "original stack has more than one node",
+			newStack: func() *ListStack[int] {
+				n1 := &node[int]{data: 1}
+				n2 := &node[int]{data: 2}
+				n1.next = n2
+				return &ListStack[int]{
+					len:   1,
+					first: n1,
+				}
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			original := tc.newStack()
+			if clone := original.CloneRecursive(); !reflect.DeepEqual(original, clone) {
+				t.Errorf("\nwant list\n\t%s\ngot\n\t%s", original, clone)
+			}
+		})
+	}
+}
+
 func Test_ListStack_Push(t *testing.T) {
 	t.Parallel()
 
