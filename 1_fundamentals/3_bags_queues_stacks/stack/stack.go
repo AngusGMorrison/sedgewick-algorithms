@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -49,6 +50,7 @@ func (s *SliceStack[E]) Each(f func(elem E)) {
 // ListStack implements a generic stack backed by a linked list.
 type ListStack[E any] struct {
 	len   int
+	ops   int // a counter of total stack operations, used to detect stack modification during iteration
 	first *node[E]
 }
 
@@ -102,6 +104,7 @@ func (ls *ListStack[E]) Push(elem E) {
 		next: ls.first,
 	}
 	ls.len++
+	ls.ops++
 }
 
 func (ls *ListStack[E]) Pop() (E, bool) {
@@ -112,6 +115,7 @@ func (ls *ListStack[E]) Pop() (E, bool) {
 	elem := ls.first.data
 	ls.first = ls.first.next
 	ls.len--
+	ls.ops++
 
 	return elem, true
 }
@@ -142,6 +146,42 @@ func (ls *ListStack[E]) String() string {
 	}
 
 	return builder.String()
+}
+
+var ErrConcurrentModification = errors.New("stack was modified during iteration")
+
+type Iterator[E any] interface {
+	HasNext() bool
+	Next() (E, error)
+}
+
+// Q1.3.50
+type ListStackIterator[E any] struct {
+	stack                   *ListStack[E]
+	stackOpsAtInstantiation int
+	cur                     *node[E]
+}
+
+func (lsi *ListStackIterator[E]) HasNext() bool {
+	return lsi.cur != nil
+}
+
+func (lsi *ListStackIterator[E]) Next() (E, error) {
+	if lsi.stackOpsAtInstantiation != lsi.stack.ops {
+		return *new(E), ErrConcurrentModification
+	}
+
+	elem := lsi.cur.data
+	lsi.cur = lsi.cur.next
+	return elem, nil
+}
+
+func (ls *ListStack[E]) Iterator() *ListStackIterator[E] {
+	return &ListStackIterator[E]{
+		stack:                   ls,
+		stackOpsAtInstantiation: ls.ops,
+		cur:                     ls.first,
+	}
 }
 
 type node[E any] struct {
