@@ -91,10 +91,27 @@ func (qu *QuickUnion) Connected(p, q int) bool {
 	return qu.Find(p) == qu.Find(q)
 }
 
+func (qu *QuickUnion) Count() int {
+	return qu.count
+}
+
 type WeightedQuickUnion struct {
 	id    []int // forest of trees
 	size  []int
 	count int
+}
+
+func NewWeightedQuickUnion(size int) *WeightedQuickUnion {
+	wqu := WeightedQuickUnion{
+		id:    make([]int, size),
+		size:  make([]int, size),
+		count: size,
+	}
+	for i := range wqu.id {
+		wqu.id[i] = i
+		wqu.size[i] = 1
+	}
+	return &wqu
 }
 
 // Find returns the root of the component containing site p. The maximum depth of any node is lg n.
@@ -123,4 +140,12 @@ func (wqu *WeightedQuickUnion) Union(p, q int) {
 	wqu.size[pRoot] += wqu.size[qRoot]
 	wqu.size[qRoot] += wqu.size[pRoot]
 	wqu.count--
+}
+
+func (wqu *WeightedQuickUnion) Connected(p, q int) bool {
+	return wqu.Find(p) == wqu.Find(q)
+}
+
+func (wqu *WeightedQuickUnion) Count() int {
+	return wqu.count
 }
