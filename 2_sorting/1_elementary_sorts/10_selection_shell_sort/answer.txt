@@ -1,0 +1,3 @@
+Even in the best case for shell sort, when the input array is already sorted, for each value of h,
+selection sort must check every hth element to identify the minimum. For insertion sort, this only
+occurs in the worst case, when the array is reverse ordered.
