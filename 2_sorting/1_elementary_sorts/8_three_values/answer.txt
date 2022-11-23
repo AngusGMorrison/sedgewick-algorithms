@@ -1,0 +1,11 @@
+The best-case runtime for insertion sort is linear, when the input array is already sorted. A
+randomly ordered array of three distinct values is only partially sorted (on average, one-third of
+elements will in the correct position), so the runtime must be quadratic.
+
+Consider an array randomly populated with the values 1, 2 and 3. On average, two-thirds of 1s will
+start in the wrong position, outside of the first third of the array. These 1s must travel between 1
+and 2n/3 elements to reach the correct position, an average of ~n/3. So we have 2n/9 out-of-position
+1s (n/3 * 2/3), travelling n/3 spaces, giving ~2n^2/27 swaps.
+
+A result can be obtained for the movement of 2s by a similar process, but we can see from the
+movement of the 1s that the sort must be quadratic.
