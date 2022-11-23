@@ -1,0 +1,7 @@
+Condition 1: j > 0
+[5, 4, 3, 2, 1]
+- Each element will always be shifted to the first position in the array, so j -> -1.
+
+Condition 2: less(a[j], a[j-1])
+[1, 2, 3, 4, 5]
+- The array is already in sorted order, so a[j] > a[j-1] for all j.
