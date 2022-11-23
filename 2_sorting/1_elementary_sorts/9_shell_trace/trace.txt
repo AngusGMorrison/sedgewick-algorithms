@@ -1,0 +1,25 @@
+h=13
+|E A S Y S H E L L S O R T |Q U E S T I O N
+E |A S Y S H E L L S O R T Q |U E S T I O N
+E A |S Y S H E L L S O R T Q U |E S T I O N
+E A E |Y S H E L L S O R T Q U S |S T I O N
+E A E S |S H E L L S O R T Q U S Y |T I O N
+E A E S S |H E L L S O R T Q U S Y T |I O N
+E A E S S H |E L L S O R T Q U S Y T I |O N
+E A E S S H E |L L S O R T Q U S Y T I O |N
+h=4
+|E A E S |S H E L L S O R T Q U S Y T I O N
+E |A E S S |H E L L S O R T Q U S Y T I O N
+E A |E S S H |E L L S O R T Q U S Y T I O N
+E A E |S S H E |L L S O R T Q U S Y T I O N
+E A E L |S H E S |L S O R T Q U S Y T I O N
+|E A E L |L H E S S S O R T Q U S Y T I O N
+E A E L L |H E S S |S O R T Q U S Y T I O N
+E |A E L L |H E S S S O R T Q U S Y T I O N
+E A E L L H |E S S S |O R T Q U S Y T I O N
+E A |E L L H |E S S S O R T Q U S Y T I O N
+E A E L L H E |S S S O |R T Q U S Y T I O N
+E A E |L L H E |R S S O S T Q U S Y T I O N
+E A E |L L H E |R S S O S T Q U S Y T I O N
+...
+At this point I got bored and stopped.
