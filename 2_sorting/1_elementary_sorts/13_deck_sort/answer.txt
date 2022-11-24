@@ -1,0 +1,1 @@
+Establish a relative ordering for suits, e.g. S < C < H < D. Perform a shell sort or insertion sort.
