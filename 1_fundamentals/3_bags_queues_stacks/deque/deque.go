@@ -42,7 +42,7 @@ func (sd *SliceDeque[D]) PopRight() (D, bool) {
 	}
 
 	data := sd.data[len(sd.data)-1]
-	sd.data = sd.data[:len(sd.data)]
+	sd.data = sd.data[:len(sd.data)-1]
 
 	return data, true
 }
