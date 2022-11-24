@@ -1,3 +1,19 @@
+/*
+This is an insertion sort problem. If you had a hand of cards, you would pick a card
+that was not in sorted order and insert it into the correct position. That is, you move the card
+around the hand. However, when we have a deck of cards and we can only see the top two, we must move
+the deck around the out-of-place card.
+
+When the top card is less than the second card, we consider the top card to be out of place. We move
+it to the correct place by flowing the rest of the deck around it, moving the second card to the
+bottom of the deck, drawing the next, moving it to the bottom and so on, until we find a card that
+is less than the top card, at which point we know the top card is in the correct place relative to
+its neighbors and move it to the bottom. The former second card then becomes the new top card.
+
+Since the deck is cyclical (we add at least one card to the bottom of the deck on every comparison),
+we must also track whether we have compared the top card to every other card in the deck. If so, we
+know it is in the correct place relative to all other cards, and we can move it to the bottom.
+*/
 package dequesort
 
 import (
@@ -49,7 +65,7 @@ func (d *Deck) Sort() {
 		cur             Card
 		compares        int           // tracks how many cards the current card has been compared to, up to nCards-1
 		sortedSubseqLen int           // tracks the length of the current subsequence that we know to be sorted
-		nCards          int = d.Len() // d.Len() fluctuates as cards are popped, so we cache the initial value
+		nCards          int = d.Len() // d.Len() fluctuates as cards are popped and pushed, so we cache the initial value
 	)
 
 	// Loop until the whole deck is one sorted subsequence. We loop to nCards-1, not nCards, because the final
