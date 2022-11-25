@@ -1,0 +1,24 @@
+The clerk should use shell sort. Shell sort requires fewer swaps than either insertion or especially
+selection sort.
+
+The efficiency of selection sort is dramatically reduced by having only one extra slot:
+  1. The current min crate is removed from its original position and stored in the extra slot.
+  2. When a crate with a sooner shipping date is found, the current min crate is put back in its
+     original position, and the new min crate is put in the extra space.
+  3. Once the overall min crate is found, it is replaced in its original position.
+  4. The crate it is to be swapped with is moved into the extra slot, and the min crate is moved to
+     the empty position.
+  5. The crate in the extra slot is then moved into the slot vacated by the min crate.
+In the case where the first crate checked is the last to be shipped, 3n+4 moves are required to get
+it to the correct position.
+
+For the insertion sort:
+  1. Remove the crate from its position.
+  2. Move all adjecent crates with a greater shipping date one position along, filling the empty space.
+  3. Put the initial crate into the space left by shifting the other crates.
+In the worst case, when the current crate must be moved to the opposite end of the warehouse, this
+totals n+1 moves.
+
+Shell sort further improves on the performance of insertion sort by repeatedly h-sorting the
+warehouse. The steps involved to move a crate into the correct position are as described by
+insertion sort.
