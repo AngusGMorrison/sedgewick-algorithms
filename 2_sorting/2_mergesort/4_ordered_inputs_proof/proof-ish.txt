@@ -1,0 +1,6 @@
+Suppose we have two arrays of integers, a1 = [2, 15] and a2 = [14, 3].
+
+Merging these arrays, we get a3 = [2, 14, 15, 3], which is not in sorted order.
+
+Hence, the in-place merge produces proper output if and only if the two input subarrays are in
+sorted order.
