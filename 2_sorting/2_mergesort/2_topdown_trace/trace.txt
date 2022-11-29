@@ -1,0 +1,19 @@
+                     0  1  2  3  4  5  6  7  8  9  10 11
+                     -----------------------------------
+                     E  A  S  Y  Q  U  E  S  T  I  O  N
+merge(a, 0, 0, 1)    A  E  s  y  q  u  e  s  t  i  o  n
+merge(a, 2, 2, 2)    a  e  S  y  q  u  e  s  t  i  o  n
+merge(a, 0, 1, 2)    A  E  S  y  q  u  e  s  t  i  o  n
+merge(a, 3, 3, 4)    a  e  s  Q  Y  u  e  s  t  i  o  n
+merge(a, 5, 5, 5)    a  e  s  q  y  U  e  s  t  i  o  n
+merge(a, 3, 4, 5)    a  e  s  Q  U  Y  e  s  t  i  o  n
+merge(a, 0, 2, 5)    A  E  Q  S  U  Y  e  s  t  i  o  n
+merge(a, 6, 6, 7)    a  e  s  y  q  u  E  S  t  i  o  n
+merge(a, 8, 8, 8)    a  e  s  y  q  u  e  s  T  i  o  n
+merge(a, 6, 7, 8)    a  e  s  y  q  u  E  S  T  i  o  n
+merge(a, 9, 9, 10)   a  e  s  y  q  u  e  s  t  I  O  n
+merge(a, 11, 11, 11) a  e  s  y  q  u  e  s  t  i  o  N
+merge(a, 9, 10, 11)  a  e  s  y  q  u  e  s  t  I  N  O
+merge(a, 6, 8, 11)   a  e  s  y  q  u  E  I  N  O  S  T
+merge(a, 0, 5, 11)   A  E  E  I  N  O  Q  S  S  T  U  Y
+
