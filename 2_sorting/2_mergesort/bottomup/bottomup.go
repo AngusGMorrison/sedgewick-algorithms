@@ -23,12 +23,18 @@ func merge[S ~[]E, E constraints.Ordered](s, aux S, lo, mid, hi int) {
 	}
 	// Merge back to s.
 	for k := lo; k <= hi; k++ {
-		if i > mid || less(aux[j], aux[i]) { // LHS exhausted or RHS < LHS
+		if i > mid { // LHS exhausted
 			s[k] = aux[j]
 			j++
-		} else { // RHS exhausted or LHS < RHS
+		} else if j > hi { // RHS exhausted
 			s[k] = aux[i]
 			i++
+		} else if less(aux[i], aux[j]) { // LHS smaller
+			s[k] = aux[i]
+			i++
+		} else { // RHS smaller
+			s[k] = aux[j]
+			j++
 		}
 	}
 }

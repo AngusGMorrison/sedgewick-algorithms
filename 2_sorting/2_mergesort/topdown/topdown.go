@@ -25,12 +25,20 @@ func merge[S ~[]E, E constraints.Ordered](s, aux S, lo, mid, hi int) {
 	}
 	// Merge back to aux.
 	for k := lo; k <= hi; k++ {
-		if i > mid || less(aux[j], aux[i]) { // LHS exhausted or RHS value smaller
+		// Must check for subarray exhaustion before checking ordering to avoid running out of
+		// bounds.
+		if i > mid { // LHS exhausted
 			s[k] = aux[j]
 			j++
-		} else { // RHS exhausted or LHS value smaller
+		} else if j > hi { // RHS exhausted
 			s[k] = aux[i]
 			i++
+		} else if less(aux[i], aux[j]) { // LHS value smaller
+			s[k] = aux[i]
+			i++
+		} else { // RHS value smaller
+			s[k] = aux[j]
+			j++
 		}
 	}
 }
