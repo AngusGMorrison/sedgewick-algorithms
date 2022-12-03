@@ -26,14 +26,15 @@ func Test_mergeSort(t *testing.T) {
 		// 	name:  "len(input) == blockSize",
 		// 	input: randomIntSlice(blockSize),
 		// },
-		{
-			name:  "blockSize | len(input)",
-			input: randomIntSlice(3 * blockSize),
-		},
 		// {
-		// 	name:  "blockSize ∤ len(input)",
-		// 	input: randomIntSlice(3*blockSize + (blockSize - 1)),
+		// 	name:  "blockSize | len(input)",
+		// 	input: randomIntSlice(31 * blockSize),
 		// },
+		{
+			name:  "blockSize ∤ len(input)",
+			input: randomIntSlice(31*blockSize + (blockSize - 1)),
+			// input: []int{62, 89, 28, 74, 11, 45, 37, 6, 95, 66, 21}, // slicing has gone wrong
+		},
 	}
 
 	for _, tc := range testCases {
@@ -79,29 +80,28 @@ func Test_selectionSortBlocks(t *testing.T) {
 		},
 		{
 			name:  "len(slice) == blockSize",
-			input: []int{2, 1, 4, 7, 3},
-			want:  []int{2, 1, 4, 7, 3},
+			input: []int{2, 1, 4, 7},
+			want:  []int{2, 1, 4, 7},
 		},
 		{
 			name:  "blockSize ∣ len(slice), first block has smaller key",
-			input: []int{2, 1, 4, 7, 3, 8, 5, 6, 9, 0},
-			want:  []int{2, 1, 4, 7, 3, 8, 5, 6, 9, 0},
-		},
-		{
-			name:  "blockSize ∣ len(slice), first block has larger key",
-			input: []int{2, 1, 4, 7, 3, 0, 5, 6, 9, 8},
-			want:  []int{0, 5, 6, 9, 8, 2, 1, 4, 7, 3},
-		},
-		{
-			name:  "blockSize ∤ len(slice), first block has smaller key",
 			input: []int{2, 1, 4, 7, 3, 8, 5, 6},
 			want:  []int{2, 1, 4, 7, 3, 8, 5, 6},
 		},
 		{
+			name:  "blockSize ∣ len(slice), first block has larger key",
+			input: []int{3, 1, 4, 7, 2, 0, 5, 6},
+			want:  []int{2, 0, 5, 6, 3, 1, 4, 7},
+		},
+		{
+			name:  "blockSize ∤ len(slice), first block has smaller key",
+			input: []int{2, 1, 4, 7, 3, 8},
+			want:  []int{2, 1, 4, 7, 3, 8},
+		},
+		{
 			name:  "blockSize ∤ len(slice), first block has larger key",
-			input: []int{2, 1, 4, 7, 3, 0, 5, 6},
-			// input: []int{0, 5, 6, 7, 3, 2, 1, 4},
-			want: []int{0, 5, 6, 2, 1, 4, 7, 3},
+			input: []int{3, 1, 4, 7, 2, 0},
+			want:  []int{2, 0, 3, 1, 4, 7},
 		},
 	}
 
@@ -111,7 +111,7 @@ func Test_selectionSortBlocks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			selectionSortBlocks(tc.input, 0, len(tc.input)-1, blockSize)
+			selectionSortBlocks(tc.input)
 
 			if !reflect.DeepEqual(tc.input, tc.want) {
 				t.Errorf("want\n\t%v\ngot\n\t%v", tc.want, tc.input)
@@ -123,7 +123,9 @@ func Test_selectionSortBlocks(t *testing.T) {
 func randomIntSlice(len int) []int {
 	ints := make([]int, len)
 	for i := range ints {
-		ints[i] = rand.Intn(100)
+		ints[i] = rand.Int()
 	}
 	return ints
 }
+
+// pathological [81 87 47 59 81 18 25 40 56 0 94 11 62 89 28 74]
