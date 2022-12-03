@@ -1,20 +1,24 @@
 package sublinear
 
 import (
-	"math"
-
 	"golang.org/x/exp/constraints"
 )
 
-// blockSize is the length of sorted subsequences (blocks) we must produce via standard merges
-// before selection sorting the blocks comprising the input slice using their first element as the
-// sort key. This ensures that each block is internally ordered, which is a requirement for merging
-// with other blocks. Must be a power of 2.
 const blockSize = 4
 
-func mergeSort(s []int) {
-	// fmt.Printf("input: %v\n", s)
+/*
+Based on a strict interpretation of the question, where "divide the array into N/M blocks of size M"
+is considered to mean that division occurs once (i.e. is non-recursive), and "considering the blocks
+as items with their first key as the sort key, sort them using selection sort" is taken to mean that
+*whole blocks* should be exchanged with each other based on a comparison of their first keys, this
+is an extremely challenging problem.
 
+This implementation works only for slices for which blockSize | len(s), and runs in (N/M)*((M)^2+N)
+time, where N is len(s) and M is blockSize. Since there is no recursive division of the array size
+(the "divide" in "divide and conquer"), we can't run in superlinear time, defeating the point of
+merge sort. This suggests that the intent of the question is different to its wording.
+*/
+func mergeSort(s []int) {
 	// In order to merge blocks of elements, those blocks must be in sorted order. We use insertion
 	// sort to sort each of the blocks comprising s, since insertion sort may outperform merge sort
 	// for n <= 15.
@@ -22,15 +26,13 @@ func mergeSort(s []int) {
 		insertionSort(s, i, min(i+blockSize-1, len(s)-1))
 	}
 
-	// fmt.Printf("after insertion sort: %v\n", s)
-
 	// Once blocks are sorted, we can merge them together. First, we sort each *whole block* into
 	// position using its first element as the sort key. I.e. block2 < block1 iff block2[0] <
 	// block1[0]. Then, we merge block1 -> block2, block2 -> block3, etc. This requires more than
 	// one pass, since, for example, elements that should have their final position in block2, but
 	// are currently in block4, will only reach block3 when block3 is merged with block4 on the
 	// first pass. The number of times we must merge sorted subarrays to produce a sorted array is
-	// no more than lg len(s), provided the length of the subarrays is a power of 2.
+	// no more than len(s)/blockSize - 1.
 	aux := make([]int, blockSize)
 	iterations := blockwiseIterations(len(s))
 	for i := 0; i < iterations; i++ {
@@ -38,7 +40,8 @@ func mergeSort(s []int) {
 	}
 }
 
-// blockwiseIterations returns
+// blockwiseIterations returns the number of times we must perform the merge to guarantee a sorted
+// array.
 func blockwiseIterations(len int) int {
 	return len/blockSize - 1
 }
@@ -54,87 +57,27 @@ func insertionSort(s []int, lo, hi int) {
 	}
 }
 
-// stdMerge is used to sort subarrays with len <= blockSize, which aux is guaranteed to be able
-// to hold.
-func stdMerge(s, aux []int, lo, mid, hi int) {
-	if lo >= hi {
-		return
-	}
-
-	// Copy to aux.
-	for i, j := lo, 0; i <= hi; i, j = i+1, j+1 {
-		aux[j] = s[i]
-	}
-
-	auxMid, auxHi := mid-lo, hi-lo
-	i, j := 0, auxMid+1
-	for k := lo; k <= hi; k++ {
-		if i > auxMid { // LHS exhausted
-			s[k] = aux[j]
-			j++
-		} else if j > auxHi { // RHS exhausted
-			s[k] = aux[i]
-			i++
-		} else if less(aux[i], aux[j]) {
-			s[k] = aux[i]
-			i++
-		} else {
-			s[k] = aux[j]
-			j++
-		}
-	}
-}
-
 func blockwiseMerge(s, aux []int) {
 	if len(s) <= blockSize { // already sorted
 		return
 	}
 
-	// defer fmt.Printf("%v\n", s)
-
-	// fmt.Printf("lo: %d, mid: %d, hi: %d, hi-lo+1 < blockSize: %t\n", lo, mid, hi, hi-lo+1 < blockSize)
-	// fmt.Printf("input: %v\n", s)
-
-	// If the input range covers more than one block, perform a blockwise merge.
-	excessKey := math.MaxInt
-	excess := len(s) % blockSize
-	if excess != 0 {
-		excessKey = s[len(s)-excess]
-	}
-	selectionSortBlocks(s)
-	// fmt.Printf("selection sorted: %v\n", s)
-
-	// Find the new location of excess key.
-	excessIdx := -1
-	for i, key := range s {
-		if key == excessKey {
-			excessIdx = i
-			break
-		}
-	}
+	// Sort blocks according to their first element.
+	blockwiseSelectionSort(s)
 
 	// While there is at least one whole block, merge that block with the following block.
-	for i := 0; i < len(s)-blockSize; {
-		curBlockSize := blockSize
-		if i == 0 && i == excessIdx { // values are required to be unique othewise earlier duplicates are in previous blocks and aren't eligible for later merges containing duplicates, e.g. []int{62, 89, 28, 74, 11, 45, 37, 6, 95, 66, 28}
-			curBlockSize = excess
-		}
+	for i := 0; i < len(s)-blockSize; i += blockSize {
 		// Copy current block to aux.
-		for j := 0; j < curBlockSize; j++ {
+		for j := 0; j < blockSize; j++ {
 			aux[j] = s[i+j]
 		}
-		// fmt.Printf("aux: %v\n", aux)
 
 		// Merge aux and the next block in s.
 		auxIdx := 0
-		nextBlockIdx := i + curBlockSize
-		nextBlockSize := blockSize
-		if i == 0 && nextBlockIdx == excessIdx {
-			nextBlockSize = excess
-		}
-		nextBlockHi := min(nextBlockIdx+nextBlockSize-1, len(s)-1)
+		nextBlockIdx := i + blockSize
+		nextBlockHi := min(nextBlockIdx+blockSize-1, len(s)-1)
 		for sortedIdx := i; sortedIdx <= nextBlockHi; sortedIdx++ {
-			if auxIdx >= curBlockSize { // LHS exhausted
+			if auxIdx >= blockSize { // LHS exhausted
 				s[sortedIdx] = s[nextBlockIdx]
 				nextBlockIdx++
 			} else if nextBlockIdx > nextBlockHi { // RHS exhausted
@@ -148,12 +91,10 @@ func blockwiseMerge(s, aux []int) {
 				nextBlockIdx++
 			}
 		}
-		// fmt.Printf("after i=%d: %v\n", i, s)
-		i += curBlockSize
 	}
 }
 
-func selectionSortBlocks[S ~[]E, E constraints.Ordered](s S) {
+func blockwiseSelectionSort[S ~[]E, E constraints.Ordered](s S) {
 	for i := 0; i < len(s); {
 		// Find block with smallest first element.
 		min := i
@@ -211,6 +152,7 @@ func less[E constraints.Ordered](a, b E) bool {
 	return a < b
 }
 
+// An example of pathological input if we don't perform multiple passes of blockwiseMerge.
 // input: [81 87 47 59 81 18 25 40 56 0 94 11 62 89 28 74]
 // after insertion sort: [47 59 81 87 18 25 40 81 0 11 56 94 28 62 74 89]
 // selection sorted: [0 11 56 94 18 25 40 81 28 62 74 89 47 59 81 87]
@@ -220,5 +162,4 @@ func less[E constraints.Ordered](a, b E) bool {
 // after i=4: [0 11 18 25 28 40 56 62 74 81 89 94 47 59 81 87]
 // aux: [74 81 89 94]
 // after i=8: [0 11 18 25 28 40 56 62 47 59 74 81 81 87 89 94]
-//     /Users/amorrison/Documents/github.com/angusgmorrison/sedgewick_algorithms/2_sorting/2_mergesort/12_sublinear_extra_space/sublinear_test.go:53: want sorted slice, got
-//         	[0 11 18 25 28 40 56 62 47 59 74 81 81 87 89 94]
+// want sorted slice, got [0 11 18 25 28 40 56 62 47 59 74 81 81 87 89 94]

@@ -14,26 +14,21 @@ func Test_mergeSort(t *testing.T) {
 		name  string
 		input []int
 	}{
-		// {
-		// 	name:  "len(input) == 0",
-		// 	input: []int{},
-		// },
-		// {
-		// 	name:  "len(input) < blockSize",
-		// 	input: randomIntSlice(blockSize - 1),
-		// },
-		// {
-		// 	name:  "len(input) == blockSize",
-		// 	input: randomIntSlice(blockSize),
-		// },
-		// {
-		// 	name:  "blockSize | len(input)",
-		// 	input: randomIntSlice(31 * blockSize),
-		// },
 		{
-			name:  "blockSize ∤ len(input)",
-			input: randomIntSlice(31*blockSize + (blockSize - 1)),
-			// input: []int{62, 89, 28, 74, 11, 45, 37, 6, 95, 66, 21}, // slicing has gone wrong
+			name:  "len(input) == 0",
+			input: []int{},
+		},
+		{
+			name:  "len(input) < blockSize",
+			input: randomIntSlice(blockSize - 1),
+		},
+		{
+			name:  "len(input) == blockSize",
+			input: randomIntSlice(blockSize),
+		},
+		{
+			name:  "blockSize | len(input)",
+			input: randomIntSlice(31 * blockSize),
 		},
 	}
 
@@ -55,7 +50,7 @@ func Test_mergeSort(t *testing.T) {
 	}
 }
 
-func Test_selectionSortBlocks(t *testing.T) {
+func Test_blockwiseSelectionSort(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -111,7 +106,7 @@ func Test_selectionSortBlocks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			selectionSortBlocks(tc.input)
+			blockwiseSelectionSort(tc.input)
 
 			if !reflect.DeepEqual(tc.input, tc.want) {
 				t.Errorf("want\n\t%v\ngot\n\t%v", tc.want, tc.input)
