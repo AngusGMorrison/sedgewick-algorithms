@@ -122,5 +122,3 @@ func randomIntSlice(len int) []int {
 	}
 	return ints
 }
-
-// pathological [81 87 47 59 81 18 25 40 56 0 94 11 62 89 28 74]
