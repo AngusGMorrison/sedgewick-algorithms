@@ -65,7 +65,7 @@ type Double[E comparable] struct {
 	Last  *DNode[E]
 }
 
-func NewList[E comparable]() *Double[E] {
+func NewDouble[E comparable]() *Double[E] {
 	return &Double[E]{}
 }
 
@@ -227,13 +227,28 @@ func (l *Double[E]) Find(elem E) (*DNode[E], error) {
 }
 
 func (l *Double[E]) AtIndex(i int) (*DNode[E], error) {
+	var j int
 	var cur *DNode[E]
-	for j, cur := 0, l.First; j < i && cur != nil; cur = cur.Next {
+	for j, cur = 0, l.First; j < i && cur != nil; j, cur = j+1, cur.Next {
 	}
 	if cur == nil {
 		return nil, ErrOutOfBounds
 	}
 	return cur, nil
+}
+
+func (l *Double[E]) Join(other *Double[E]) *Double[E] {
+	if l.Len == 0 {
+		return other
+	}
+	if other.Len == 0 {
+		return l
+	}
+	other.First.Prev = l.Last
+	l.Last.Next = other.First
+	l.Last = other.Last
+
+	return l
 }
 
 // DNode is a node in a doubly-linked list.

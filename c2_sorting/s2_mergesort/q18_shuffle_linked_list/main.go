@@ -9,123 +9,146 @@ import (
 
 func main() {
 	src := rand.NewSource(12345)
-	shuffler := NewShuffler[int](src)
+	shuffler := NewListShuffler[int](src)
 
 	// Empty l
 	l := (*list.Double[int])(nil)
-	fmt.Printf("input list: %s\n", l)
-	shuffler.ShuffleList(l)
-	fmt.Printf("shuffled: %s\n", l)
+	fmt.Printf("top-down input list: %s\n", l)
+	result := shuffler.BottomUp(l)
+	fmt.Printf("top-down shuffled: %s\n", result)
 
 	// Ordered list
-	l = list.NewList[int]()
+	l = list.NewDouble[int]()
 	for i := 0; i < 100; i++ {
 		l.Append(i)
 	}
-	fmt.Printf("input list: %s\n", l)
-	shuffler.ShuffleList(l)
-	fmt.Printf("shuffled: %s\n", l)
+	fmt.Printf("top-down input list: %s\n", l)
+	result = shuffler.BottomUp(l)
+	fmt.Printf("top-down shuffled: %s\n", result)
+
+	// Empty l
+	l = (*list.Double[int])(nil)
+	fmt.Printf("bottom-up input list: %s\n", l)
+	result = shuffler.TopDown(l)
+	fmt.Printf("bottom-up shuffled: %s\n", result)
+
+	// Ordered list
+	l = list.NewDouble[int]()
+	for i := 0; i < 100; i++ {
+		l.Append(i)
+	}
+	fmt.Printf("bottom-up input list: %s\n", l)
+	result = shuffler.TopDown(l)
+	fmt.Printf("bottom-up shuffled: %s\n", result)
 }
 
-type Shuffler[E comparable] struct {
+type ListShuffler[E comparable] struct {
 	rng *rand.Rand
 }
 
-func NewShuffler[E comparable](src rand.Source) *Shuffler[E] {
-	return &Shuffler[E]{rng: rand.New(src)}
+func NewListShuffler[E comparable](src rand.Source) *ListShuffler[E] {
+	return &ListShuffler[E]{rng: rand.New(src)}
 }
 
-// Assumes the length of the list is known and a we're allowed to use a doubly-linked list.
-func (s *Shuffler[E]) ShuffleList(l *list.Double[E]) *list.Double[E] {
+// BottomUp shuffles the list in bottom-up style by recursively breaking it into halves, then
+// building it back up by randomly selecting elements from its two shuffled halves until both halves
+// are depleted.
+func (ls *ListShuffler[E]) BottomUp(l *list.Double[E]) *list.Double[E] {
 	if l == nil || l.Len <= 1 {
 		return l
 	}
 
-	// Pick initial element.
-	idx := s.rng.Intn(l.Len)
-	head, left, right, err := SplitAtIndex(l, idx)
+	mid := (l.Len / 2) - 1
+	l1, l2, err := splitAtIndex(l, mid)
 	if err != nil {
 		panic(err) // should never happen
 	}
 
-	if left.Len == 0 && right.Len == 0 {
-		return head
-	}
+	l1 = ls.BottomUp(l1)
+	l2 = ls.BottomUp(l2)
 
-	var next, second *list.Double[E]
-	if s.rng.Intn(2) == 0 {
-		if left.Len > 0 {
-			next = s.ShuffleList(left)
-			if right.Len > 0 {
-				second = s.ShuffleList(right)
-			}
+	result := list.NewDouble[E]()
+	l1InitialLen, l2InitialLen := l1.Len, l2.Len
+	for i, j := 0, 0; i < l1InitialLen || j < l2InitialLen; {
+		if ls.takeFromTargetWithLen(l1.Len, l2.Len) {
+			elem, _ := l1.Pop()
+			result.Append(elem)
+			i++
 		} else {
-			next = s.ShuffleList(right)
-		}
-	} else {
-		if right.Len > 0 {
-			next = s.ShuffleList(right)
-			if left.Len > 0 {
-				second = s.ShuffleList(left)
-			}
-		} else {
-			next = s.ShuffleList(left)
+			elem, _ := l2.Pop()
+			result.Append(elem)
+			j++
 		}
 	}
 
-	if next != nil && next.Len > 0 {
-		head.Last.Next = next.First
-		next.First.Prev = head.Last
-		head.Last = next.Last
-		head.Len += next.Len
-	}
-	if second != nil && second.Len > 0 {
-		head.Last.Next = second.First
-		second.First.Prev = head.Last
-		head.Last = second.Last
-		head.Len += second.Len
-	}
-
-	fmt.Printf("%+v\n", head)
-	return head
+	return result
 }
 
-// SplitAtIndex splits a doubly linked list at index i, returning the node at i, nodes to the left
-// of i and nodes to the right of i as three separate linked lists.
-func SplitAtIndex[E comparable](l *list.Double[E], i int) (atIndex, left, right *list.Double[E], err error) {
+// TopDown creates progressively more disordered lists of smaller and smaller sizes, then combines
+// them into a single, randomly distributed list.
+func (ls *ListShuffler[E]) TopDown(l *list.Double[E]) *list.Double[E] {
+	if l == nil || l.Len <= 1 {
+		return l
+	}
+
+	mid := (l.Len / 2) - 1
 	initialLen := l.Len
-	initialLast := l.Last
+	l1, l2 := list.NewDouble[E](), list.NewDouble[E]()
+	for i, j := 0, mid+1; i <= mid || j < initialLen; {
+		elem, err := l.Pop()
+		if err != nil {
+			panic(err) // should never happen
+		}
 
-	node, err := l.AtIndex(i) // delete head
+		if ls.takeFromTargetWithLen(mid-i+1, initialLen-(j+1)) {
+			l1.Append(elem)
+			i++
+		} else {
+			l2.Append(elem)
+			j++
+		}
+	}
+
+	l1 = ls.TopDown(l1)
+	l2 = ls.TopDown(l2)
+	return l1.Join(l2)
+}
+
+// takeFromTargetWithLen returns true with probability equal to targetLen as a percentage of the
+// total elements remaining in two lists. This allows us to write conditionals such that the
+// probability of selecting any element is uniformly distributed.
+func (ls *ListShuffler[E]) takeFromTargetWithLen(targetLen, otherLen int) bool {
+	totalLen := float64(targetLen + otherLen)
+	return ls.rng.Float64() < float64(targetLen)/totalLen
+}
+
+// splitAtIndex splits a doubly linked list at index i into two lists. The first starts at l.First
+// and ends at i. The second starts at i+1 and ends at l.Last.
+func splitAtIndex[E comparable](l *list.Double[E], i int) (*list.Double[E], *list.Double[E], error) {
+	initialLen := l.Len
+
+	ithNode, err := l.AtIndex(i)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	left = l
-	left.Len = i
-	left.Last = node.Prev
-	if node.Prev == nil {
-		left.First = nil
-	} else {
-		node.Prev.Next = nil
-		node.Prev = nil
+	l1 := &list.Double[E]{
+		Len:   i + 1,
+		First: l.First,
+		Last:  ithNode,
 	}
 
-	right = &list.Double[E]{
-		Len:   initialLen - (i + 1),
-		First: node.Next,
-	}
-	if node.Next != nil {
-		right.Last = initialLast
-		node.Next.Prev = nil
-		node.Next = nil
+	len2 := initialLen - (i + 1)
+	l2 := &list.Double[E]{
+		Len:   len2,
+		First: ithNode.Next,
 	}
 
-	atIndex = &list.Double[E]{
-		Len:   1,
-		First: node,
-		Last:  node,
+	if ithNode.Next != nil {
+		l2.Last = l.Last
+		ithNode.Next.Prev = nil
+		ithNode.Next = nil
 	}
 
-	return atIndex, left, right, nil
+	return l1, l2, nil
 }
