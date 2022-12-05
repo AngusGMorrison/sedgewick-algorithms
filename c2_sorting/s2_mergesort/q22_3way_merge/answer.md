@@ -1,0 +1,1 @@
+Changing the number of subdivisions is equivalent to changing the base of the logarithm, which has no effect on the order of growth.
