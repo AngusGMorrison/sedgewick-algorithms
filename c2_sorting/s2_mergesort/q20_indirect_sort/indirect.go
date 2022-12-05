@@ -24,6 +24,7 @@ func sort(s, idx, aux []int, lo, hi int) {
 	mid := lo + (hi-lo)/2
 	sort(s, idx, aux, lo, mid)
 	sort(s, idx, aux, mid+1, hi)
+	merge(s, idx, aux, lo, mid, hi)
 }
 
 func merge(s, idx, aux []int, lo, mid, hi int) {
