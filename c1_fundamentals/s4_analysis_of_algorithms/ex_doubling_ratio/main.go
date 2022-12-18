@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/angusgmorrison/sedgewick_algorithms/1_fundamentals/analysis/threesum"
+	threesum "github.com/angusgmorrison/sedgewick_algorithms/c1_fundamentals/s4_analysis_of_algorithms/ex_threesum"
 )
 
 const intMax = 10_000_000

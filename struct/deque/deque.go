@@ -48,21 +48,21 @@ func (sd *SliceDeque[D]) PopRight() (D, bool) {
 }
 
 type ListDeque[D comparable] struct {
-	list *list.DoubleList[D]
+	list *list.Double[D]
 }
 
 func NewListDeque[D comparable]() *ListDeque[D] {
 	return &ListDeque[D]{
-		list: &list.DoubleList[D]{},
+		list: &list.Double[D]{},
 	}
 }
 
 func (ld *ListDeque[D]) IsEmpty() bool {
-	return ld.list.Len() == 0
+	return ld.list.Len == 0
 }
 
 func (ld *ListDeque[D]) Len() int {
-	return ld.list.Len()
+	return ld.list.Len
 }
 
 func (ld *ListDeque[D]) PushLeft(data D) {

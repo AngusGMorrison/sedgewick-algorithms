@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/angusgmorrison/sedgewick_algorithms/1_fundamentals/analysis/26_collinearity/collinearity"
+	"github.com/angusgmorrison/sedgewick_algorithms/c1_fundamentals/s4_analysis_of_algorithms/q26_collinearity/collinearity"
 )
 
 const intMax = 1000
