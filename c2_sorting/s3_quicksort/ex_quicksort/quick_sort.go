@@ -16,7 +16,7 @@ func quickSort[S ~[]E, E constraints.Ordered](s S, lo, hi int) {
 	}
 
 	pivot := partition(s, lo, hi)
-	quickSort(s, lo, pivot)
+	quickSort(s, lo, pivot-1)
 	quickSort(s, pivot+1, hi)
 }
 
