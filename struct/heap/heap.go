@@ -1,70 +1,85 @@
 package heap
 
-// MaxHeap implements a maximum priority queue, where the node at the root has greatest priority.
-type MaxHeap[E any] struct {
-	data []E
-	less func(a, b E) bool
+import "fmt"
+
+// Heap implements a priority queue, where the node at the root has greatest priority.
+type Heap[E any] struct {
+	data       []E
+	priorityFn func(a, b E) bool
 }
 
-func NewMaxPQ[E any](less func(a, b E) bool) *MaxHeap[E] {
-	return &MaxHeap[E]{
-		data: []E{*new(E)}, // pq is initialized with a dummy value at the zero-index so we can index from 1
-		less: less,
+func NewHeap[E any](hasPriority func(a, b E) bool) *Heap[E] {
+	return &Heap[E]{
+		priorityFn: hasPriority,
 	}
 }
 
-func (mh *MaxHeap[E]) Len() int {
-	return len(mh.data) - 1 // pq is indexed from 1
+func NewHeapFromSlice[S ~[]E, E any](s S, hasPriority func(a, b E) bool) *Heap[E] {
+	h := NewHeap(hasPriority)
+	for _, e := range s {
+		h.Push(e)
+	}
+
+	return h
 }
 
-func (mh *MaxHeap[E]) IsEmpty() bool {
-	return mh.Len() == 0
+func (mh *Heap[E]) Len() int {
+	return len(mh.data)
 }
 
-func (mh *MaxHeap[E]) Push(elem E) {
-	mh.data = append(mh.data, elem)
-	mh.swim()
+func (mh *Heap[E]) IsEmpty() bool {
+	return len(mh.data) == 0
+}
+
+func (h *Heap[E]) Push(elem E) {
+	h.data = append(h.data, elem)
+	h.swim()
 }
 
 // swim moves the last element in the queue up the heap until it reaches its correct position.
-func (mh *MaxHeap[E]) swim() {
-	for k := mh.Len(); k > 1 && mh.less(mh.data[k/2], mh.data[k]); k /= 2 { // while the current element is less than its parent...
-		mh.swap(k, k/2)
+func (h *Heap[E]) swim() {
+	for i := len(h.data) - 1; i > 0 && h.hasPriority(i, (i-1)/2); i = (i - 1) / 2 { // while the current element is less than its parent...
+		h.swap(i, (i-1)/2)
 	}
 }
 
-func (mh *MaxHeap[E]) Pop() (E, bool) {
-	if mh.IsEmpty() {
+func (h *Heap[E]) Pop() (E, bool) {
+	if h.IsEmpty() {
 		return *new(E), false
 	}
 
-	max := mh.data[1]
-	len := mh.Len()
-	mh.swap(1, len)
-	mh.data[len] = *new(E) // zero the value to avoid loitering
-	mh.data = mh.data[:len]
-	mh.sink()
-	return max, true
+	head := h.data[0]
+	h.data[0] = *new(E) // zero the value to avoid loitering
+	h.swap(0, len(h.data)-1)
+	h.data = h.data[:len(h.data)-1]
+	h.sink()
+
+	return head, true
 }
 
-func (mh *MaxHeap[E]) sink() {
-	len := mh.Len()
-	// While k is smaller than its children, swap k with its greatest child.
-	for k := 1; 2*k <= len; { // while k still has children...
-		j := 2 * k                                        // initialize j to the first child of k
-		if j < len && mh.less(mh.data[j], mh.data[j+1]) { // if there is another child and it is greater than the current value at j, select that child
+func (h *Heap[E]) sink() {
+	// While i is has lower priority than its children, swap i with its greatest child.
+	for i := 0; 2*i+1 < len(h.data); { // while i still has children...
+		j := 2*i + 1                                    // initialize j to the first child of i
+		if j < len(h.data)-1 && h.hasPriority(j+1, j) { // if there is another child and it has greater priority than the current value at j, select that child
 			j++
 		}
 
-		if !mh.less(mh.data[k], mh.data[j]) { // k is greater than or equal to its greatest child, so it is in the correct position
+		if !h.hasPriority(j, i) { // i is has priority over or is equal to its greatest child, so it is in the correct position
+			fmt.Printf("%v is greater than or equal to %v\n", h.data[j], h.data[i])
 			break
 		}
+		fmt.Printf("%v is less than %v\n", h.data[j], h.data[i])
 
-		mh.swap(k, j) // k is less than its greatest child, so swap it into position
-		k = j
+		h.swap(i, j) // i has lower priority than its highest-priority child, so swap it into position
+		i = j
 	}
 }
 
-func (mh *MaxHeap[E]) swap(i, j int) {
-	mh.data[i], mh.data[j] = mh.data[j], mh.data[i]
+func (h *Heap[E]) swap(i, j int) {
+	h.data[i], h.data[j] = h.data[j], h.data[i]
+}
+
+func (h *Heap[E]) hasPriority(i, j int) bool {
+	return h.priorityFn(h.data[i], h.data[j])
 }
