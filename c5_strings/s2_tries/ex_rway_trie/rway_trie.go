@@ -9,7 +9,7 @@ type RWayTrie[E any] struct {
 
 func (t *RWayTrie[E]) Get(key string) (E, bool) {
 	n := t.root.get([]rune(key), 0)
-	if n == nil {
+	if n == nil || !n.hasVal {
 		return *new(E), false
 	}
 
@@ -36,8 +36,8 @@ func (t *RWayTrie[E]) KeysMatching(pattern string) []string {
 }
 
 func (t *RWayTrie[E]) LongestPrefixOf(s string) string {
-	length := t.root.longestPrefixLen([]rune(s), 0, 0)
-	return s[:length]
+	length := t.root.maxPrefixLen([]rune(s), 0, 0)
+	return string([]rune(s)[:length])
 }
 
 func (t *RWayTrie[E]) Delete(key string) {
@@ -51,12 +51,8 @@ type node[E any] struct {
 }
 
 func (n *node[E]) get(key []rune, idx int) *node[E] {
-	if n == nil {
-		return nil
-	}
-
-	if idx == len(key) {
-		return n
+	if n == nil || idx == len(key) {
+		return n // may be nil or contain no value if no such key exists
 	}
 
 	r := key[idx]
@@ -132,7 +128,7 @@ func (n *node[E]) match(prefix []rune, pattern []rune, radix int) []string {
 	return keys
 }
 
-func (n *node[E]) longestPrefixLen(word []rune, idx int, length int) int {
+func (n *node[E]) maxPrefixLen(word []rune, idx int, length int) int {
 	if n == nil {
 		return length
 	}
@@ -146,7 +142,7 @@ func (n *node[E]) longestPrefixLen(word []rune, idx int, length int) int {
 	}
 
 	nextRune := word[idx]
-	return n.next[nextRune].longestPrefixLen(word, idx+1, length)
+	return n.next[nextRune].maxPrefixLen(word, idx+1, length)
 }
 
 func (n *node[E]) delete(key []rune, idx int, radix int) *node[E] {
@@ -169,8 +165,8 @@ func (n *node[E]) delete(key []rune, idx int, radix int) *node[E] {
 		return n
 	}
 
-	for r := 0; r < radix; r++ {
-		if n.next[r] != nil {
+	for _, r := range n.next {
+		if r != nil {
 			// If the current node does not have a value but has even a single a non-nil child, it
 			// is part of a chain of nodes used by other keys and must be retained.
 			return n
