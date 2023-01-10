@@ -4,6 +4,10 @@ type TST[V any] struct {
 	root *node[V]
 }
 
+func New[V any]() *TST[V] {
+	return &TST[V]{}
+}
+
 func (t *TST[V]) Get(key string) (V, bool) {
 	n := t.root.get([]rune(key), 0)
 	if n == nil || !n.hasVal {
@@ -18,13 +22,26 @@ func (t *TST[V]) Put(key string, val V) {
 }
 
 func (t *TST[V]) Keys() []string {
-	return t.KeysWithPrefix("")
+	return t.root.collect(nil, nil)
 }
 
 func (t *TST[V]) KeysWithPrefix(prefix string) []string {
+	if prefix == "" {
+		return t.Keys()
+	}
+
 	runePrefix := []rune(prefix)
 	prefixRoot := t.root.get(runePrefix, 0)
-	return prefixRoot.collect(runePrefix)
+	if prefixRoot == nil {
+		return nil
+	}
+
+	var keys []string
+	if prefixRoot.hasVal {
+		keys = append(keys, prefix)
+	}
+
+	return prefixRoot.mid.collect(runePrefix, keys)
 }
 
 func (t *TST[V]) LongestPrefixOf(s string) string {
@@ -33,7 +50,10 @@ func (t *TST[V]) LongestPrefixOf(s string) string {
 }
 
 func (t *TST[V]) Delete(key string) {
-	t.root.delete([]rune(key), 0)
+	if len(key) == 0 {
+		return
+	}
+	t.root = t.root.delete([]rune(key), 0)
 }
 
 type node[V any] struct {
@@ -44,15 +64,17 @@ type node[V any] struct {
 }
 
 func (n *node[V]) get(key []rune, idx int) *node[V] {
-	if n == nil {
-		return nil
+	if n == nil || len(key) == 0 {
+		return n
 	}
 
 	r := key[idx]
 	if r < n.r {
-		return n.left.get(key, idx+1)
+		// For the less-than and greater-than cases, we don't advance the index counter because
+		// we've haven't reached the correct spot (alphabetically) for r yet.
+		return n.left.get(key, idx)
 	} else if r > n.r {
-		return n.right.get(key, idx+1)
+		return n.right.get(key, idx)
 	} else if idx < len(key)-1 { // handle double letters
 		return n.mid.get(key, idx+1)
 	} else {
@@ -67,9 +89,11 @@ func (n *node[V]) put(key []rune, val V, idx int) *node[V] {
 	}
 
 	if r < n.r {
-		n.left.put(key, val, idx+1)
+		// For the less-than and greater-than cases, we don't advance the index counter because
+		// we've haven't reached the correct spot (alphabetically) for r yet.
+		n.left = n.left.put(key, val, idx)
 	} else if r > n.r {
-		n.right.put(key, val, idx+1)
+		n.right = n.right.put(key, val, idx)
 	} else if idx < len(key)-1 {
 		n.mid = n.mid.put(key, val, idx+1)
 	} else {
@@ -80,20 +104,23 @@ func (n *node[V]) put(key []rune, val V, idx int) *node[V] {
 	return n
 }
 
-func (n *node[V]) collect(prefix []rune) []string {
+func (n *node[V]) collect(prefix []rune, keys []string) []string {
 	if n == nil {
-		return nil
+		return keys
 	}
 
-	prefix = append(prefix, n.r)
+	// The current node does not contain a letter belonging to its left and right children. Words
+	// that incorporate its left child (or its left children) come alphabetically before words that
+	// incorporate the current node. Words that incorporate its right child (or its children) come
+	// alphabetically after words that incorporate the current node.
 
-	var keys []string
+	keys = n.left.collect(prefix, keys) // left children do not include the current node - use the old prefix
+	nextPrefix := append(prefix, n.r)
 	if n.hasVal {
-		keys = append(keys, string(prefix))
+		keys = append(keys, string(nextPrefix))
 	}
-	keys = append(keys, n.left.collect(prefix)...)
-	keys = append(keys, n.mid.collect(prefix)...)
-	keys = append(keys, n.right.collect(prefix)...)
+	keys = n.mid.collect(nextPrefix, keys) // middle children include the current node - use the new prefix
+	keys = n.right.collect(prefix, keys)   // right children do not include the current node - use the old prefix
 	return keys
 }
 
@@ -108,11 +135,11 @@ func (n *node[V]) maxPrefixLen(key []rune, idx int, length int) int {
 
 	r := key[idx]
 	if r < n.r {
-		return n.left.maxPrefixLen(key, idx+1, length)
+		return n.left.maxPrefixLen(key, idx, length)
 	} else if r > n.r {
-		return n.right.maxPrefixLen(key, idx+1, length)
+		return n.right.maxPrefixLen(key, idx, length)
 	} else if idx < len(key)-1 {
-		return n.mid.maxPrefixLen(key, idx, length)
+		return n.mid.maxPrefixLen(key, idx+1, length)
 	} else {
 		return length
 	}
@@ -125,9 +152,11 @@ func (n *node[V]) delete(key []rune, idx int) *node[V] {
 
 	r := key[idx]
 	if r < n.r {
-		n.left = n.left.delete(key, idx+1)
+		// For the less-than and greater-than cases, we don't advance the index counter because
+		// we've haven't reached the correct spot (alphabetically) for r yet.
+		n.left = n.left.delete(key, idx)
 	} else if r > n.r {
-		n.right = n.right.delete(key, idx+1)
+		n.right = n.right.delete(key, idx)
 	} else if idx < len(key)-1 {
 		n.mid = n.mid.delete(key, idx+1)
 	} else {
@@ -135,8 +164,12 @@ func (n *node[V]) delete(key []rune, idx int) *node[V] {
 		n.hasVal = false
 	}
 
-	if n.left == nil && n.mid == nil && n.right == nil {
+	if n.isUnused() {
 		return nil
 	}
 	return n
+}
+
+func (n *node[V]) isUnused() bool {
+	return !n.hasVal && n.left == nil && n.mid == nil && n.right == nil
 }
