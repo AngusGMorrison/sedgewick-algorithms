@@ -10,6 +10,8 @@ import (
 func Test_HeapSort(t *testing.T) {
 	t.Parallel()
 
+	r := testutil.NewRand(t)
+
 	testCases := []struct {
 		name  string
 		input []int
@@ -25,7 +27,7 @@ func Test_HeapSort(t *testing.T) {
 		},
 		{
 			name:  "input with odd number of elems",
-			input: testutil.RandomIntSlice(101),
+			input: r.IntSlice(101),
 		},
 	}
 

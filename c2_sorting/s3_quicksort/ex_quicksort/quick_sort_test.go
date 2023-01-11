@@ -29,7 +29,8 @@ func Test_QuickSort(t *testing.T) {
 		t.Run(fmt.Sprintf("slice len %d", tc.inputLen), func(t *testing.T) {
 			t.Parallel()
 
-			s := testutil.RandomIntSlice(tc.inputLen)
+			r := testutil.NewRand(t)
+			s := r.IntSlice(tc.inputLen)
 			QuickSort(s)
 			if !sort.IntsAreSorted(s) {
 				t.Errorf("want sorted slice, got %v", s)
