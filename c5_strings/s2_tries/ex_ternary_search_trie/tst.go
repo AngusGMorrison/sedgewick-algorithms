@@ -164,12 +164,58 @@ func (n *node[V]) delete(key []rune, idx int) *node[V] {
 		n.hasVal = false
 	}
 
-	if n.isUnused() {
-		return nil
+	// Clean up nodes that are no longer part of any key as a result of the deletion.
+	if !n.isUsed() {
+		return n.deleteSelf()
 	}
 	return n
 }
 
-func (n *node[V]) isUnused() bool {
-	return !n.hasVal && n.left == nil && n.mid == nil && n.right == nil
+// n is part of a key iff it has a value or has a middle child.
+func (n *node[V]) isUsed() bool {
+	return n.hasVal || n.mid != nil
+}
+
+func (n *node[V]) deleteSelf() *node[V] {
+	if n == nil {
+		return nil
+	}
+	if n.right == nil {
+		return n.left
+	}
+	if n.left == nil {
+		return n.right
+	}
+
+	deleted := n
+	n = deleted.right.minChild()
+	n.right = deleted.right.deleteMinChild()
+	n.left = deleted.left
+	return n
+}
+
+func (n *node[V]) minChild() *node[V] {
+	if n == nil {
+		return nil
+	}
+
+	for n.left != nil {
+		n = n.left
+	}
+	return n
+}
+
+func (n *node[V]) deleteMinChild() *node[V] {
+	if n == nil {
+		return nil
+	}
+
+	if n.left == nil {
+		// There are no smaller nodes than n. To delete n, we replace it with the next-greatest
+		// node, n.right (which may be nil).
+		return n.right
+	}
+
+	n.left = n.left.deleteMinChild()
+	return n
 }
