@@ -11,6 +11,7 @@ type Graph interface {
 	Edges() int
 	Vertices() int
 	AddEdge(v, w int)
+	AddVertex()
 	Adjacent(v int) []int
 	String() string
 }
@@ -88,6 +89,10 @@ func (g *adjacencyList) AddEdge(v, w int) {
 	g.adj[v] = append(g.adj[v], w)
 	g.adj[w] = append(g.adj[w], v)
 	g.edges++
+}
+
+func (g *adjacencyList) AddVertex() {
+	g.adj = append(g.adj, nil)
 }
 
 // Adjacent returns a copy of the list of nodes adjacent to v.
