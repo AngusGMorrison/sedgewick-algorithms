@@ -2,17 +2,17 @@ package ex_symbol_graph
 
 import "github.com/angusgmorrison/sedgewick_algorithms/c4_graphs/s1_undirected_graphs/ex_graph"
 
-type SymbolGraph struct {
-	indices map[string]int // maps each string key to its index in keys
-	keys    []string       // maps an index to a string key
+type SymbolGraph[K comparable] struct {
+	indices map[K]int // maps each key to its index in keys
+	keys    []K       // maps an index to a key
 	g       ex_graph.Graph
 }
 
 // New returns a SymbolGraph with a vertex for each key in keys and no edges.
-func New(keys []string) *SymbolGraph {
-	sg := &SymbolGraph{
-		indices: make(map[string]int, len(keys)),
-		keys:    make([]string, len(keys)),
+func New[S ~[]K, K comparable](keys S) *SymbolGraph[K] {
+	sg := &SymbolGraph[K]{
+		indices: make(map[K]int, len(keys)),
+		keys:    make([]K, len(keys)),
 		g:       ex_graph.New(len(keys)),
 	}
 	copy(sg.keys, keys)
@@ -23,26 +23,26 @@ func New(keys []string) *SymbolGraph {
 	return sg
 }
 
-func (sg *SymbolGraph) Edges() int {
+func (sg *SymbolGraph[K]) Edges() int {
 	return sg.g.Edges()
 }
 
-func (sg *SymbolGraph) Vertices() int {
+func (sg *SymbolGraph[K]) Vertices() int {
 	return sg.g.Vertices()
 }
 
-func (sg *SymbolGraph) Adjacent(v int) []int {
+func (sg *SymbolGraph[K]) Adjacent(v int) []int {
 	return sg.g.Adjacent(v)
 }
 
-func (sg *SymbolGraph) AdjacentByKey(key string) []string {
+func (sg *SymbolGraph[K]) AdjacentByKey(key K) []K {
 	idx, ok := sg.indices[key]
 	if !ok {
 		return nil
 	}
 
 	adj := sg.Adjacent(idx)
-	adjKeys := make([]string, len(adj))
+	adjKeys := make([]K, len(adj))
 	for _, v := range adj {
 		adjKeys = append(adjKeys, sg.keys[v])
 	}
@@ -50,7 +50,7 @@ func (sg *SymbolGraph) AdjacentByKey(key string) []string {
 	return adjKeys
 }
 
-func (sg *SymbolGraph) AddEdge(k1, k2 string) {
+func (sg *SymbolGraph[K]) AddEdge(k1, k2 K) {
 	i1, ok := sg.indices[k1]
 	if !ok {
 		return
@@ -62,12 +62,12 @@ func (sg *SymbolGraph) AddEdge(k1, k2 string) {
 	sg.g.AddEdge(i1, i2)
 }
 
-func (sg *SymbolGraph) Contains(key string) bool {
+func (sg *SymbolGraph[K]) Contains(key K) bool {
 	_, ok := sg.indices[key]
 	return ok
 }
 
-func (sg *SymbolGraph) AddVertex(key string) {
+func (sg *SymbolGraph[K]) AddVertex(key K) {
 	if sg.Contains(key) {
 		return
 	}
@@ -77,10 +77,10 @@ func (sg *SymbolGraph) AddVertex(key string) {
 	sg.g.AddVertex()
 }
 
-func (sg *SymbolGraph) Name(v int) string {
+func (sg *SymbolGraph[K]) Name(v int) K {
 	return sg.keys[v]
 }
 
-func (sg *SymbolGraph) Index(key string) int {
+func (sg *SymbolGraph[K]) Index(key K) int {
 	return sg.indices[key]
 }
