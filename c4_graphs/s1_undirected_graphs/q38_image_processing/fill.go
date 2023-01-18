@@ -38,6 +38,8 @@ func NewCanvas(w, h uint) *Canvas {
 
 // Fill fills a contiguous region having the color of pixel (x, y) with the given color.
 func (c *Canvas) Fill(x, y uint, color Color) {
+	// Perform a breadth-first search from the source to find all contiguous pixels of the same
+	// color.
 	source := c.pixelIndex(x, y)
 	originalColor := c.buf[source]
 	if color == originalColor {
@@ -49,9 +51,8 @@ func (c *Canvas) Fill(x, y uint, color Color) {
 
 	for pixelIdx, ok := worklist.Dequeue(); ok; pixelIdx, ok = worklist.Dequeue() {
 		c.buf[pixelIdx] = color
-		neighbors := c.neighboringIndices(pixelIdx)
-		fmt.Println(neighbors)
-		for _, neighbor := range neighbors {
+
+		for _, neighbor := range c.neighboringIndices(pixelIdx) {
 			if c.buf[neighbor] == originalColor {
 				worklist.Enqueue(neighbor)
 			}
@@ -64,57 +65,20 @@ func (c *Canvas) pixelIndex(x, y uint) uint {
 }
 
 func (c *Canvas) neighboringIndices(i uint) []uint {
-	inTopRow := c.pixelIsInTopRow(i)
-	inBottomRow := c.pixelIsInBottomRow(i)
-	inLeftCol := c.pixelIsInLeftCol(i)
-	inRightCol := c.pixelIsInRightCol(i)
-
-	if inTopRow && inBottomRow && inLeftCol && inRightCol {
-		return nil
+	var neighbors []uint
+	if !c.pixelIsInTopRow(i) {
+		neighbors = append(neighbors, i-c.width)
 	}
-	if inTopRow && inBottomRow && inLeftCol {
-		return []uint{i + 1}
+	if !c.pixelIsInBottomRow(i) {
+		neighbors = append(neighbors, i+c.width)
 	}
-	if inTopRow && inBottomRow && inRightCol {
-		return []uint{i - 1}
+	if !c.pixelIsInLeftCol(i) {
+		neighbors = append(neighbors, i-1)
 	}
-	if inTopRow && inLeftCol && inRightCol {
-		return []uint{i + c.width}
+	if !c.pixelIsInRightCol(i) {
+		neighbors = append(neighbors, i+1)
 	}
-	if inBottomRow && inLeftCol && inRightCol {
-		return []uint{i - c.width}
-	}
-	if inTopRow && inBottomRow {
-		return []uint{i - 1, i + 1}
-	}
-	if inLeftCol && inRightCol {
-		return []uint{i - c.width, i + c.width}
-	}
-	if inTopRow && inLeftCol {
-		return []uint{i + 1, i + c.width}
-	}
-	if inTopRow && inRightCol {
-		return []uint{i - 1, i + c.width}
-	}
-	if inBottomRow && inLeftCol {
-		return []uint{i + 1, i - c.width}
-	}
-	if inBottomRow && inRightCol {
-		return []uint{i - 1, i - c.width}
-	}
-	if inTopRow {
-		return []uint{i - 1, i + 1, i + c.width}
-	}
-	if inBottomRow {
-		return []uint{i - 1, i + 1, i - c.width}
-	}
-	if inLeftCol {
-		return []uint{i + 1, i - c.width, i + c.width}
-	}
-	if inRightCol {
-		return []uint{i - 1, i - c.width, i + c.width}
-	}
-	return []uint{i - 1, i + 1, i - c.width, i + c.width}
+	return neighbors
 }
 
 func (c *Canvas) pixelIsInTopRow(i uint) bool {
@@ -130,13 +94,5 @@ func (c *Canvas) pixelIsInLeftCol(i uint) bool {
 }
 
 func (c *Canvas) pixelIsInRightCol(i uint) bool {
-
-	if c.width-1 == 0 {
-		return true
-	}
-	if i == 0 {
-		return false
-	}
-
 	return (i % c.width) == c.width-1
 }
