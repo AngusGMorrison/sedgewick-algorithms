@@ -28,7 +28,7 @@ func (bfp *BreadthFirstPaths) bfs(g ex_graph.Graph, source int) {
 	q.Enqueue(source)
 
 	for v, ok := q.Dequeue(); ok; v, ok = q.Dequeue() {
-		for w := range g.Adjacent(v) {
+		for _, w := range g.Adjacent(v) {
 			if bfp.seen[w] {
 				continue
 			}
