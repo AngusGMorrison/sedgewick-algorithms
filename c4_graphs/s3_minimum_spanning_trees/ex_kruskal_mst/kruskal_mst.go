@@ -2,26 +2,36 @@ package ex_kruskal_mst
 
 import (
 	"github.com/angusgmorrison/sedgewick_algorithms/c4_graphs/s3_minimum_spanning_trees/ex_edge_weighted_graph"
+	"github.com/angusgmorrison/sedgewick_algorithms/c4_graphs/s3_minimum_spanning_trees/ex_mst"
 	"github.com/angusgmorrison/sedgewick_algorithms/struct/heap"
-	"github.com/angusgmorrison/sedgewick_algorithms/struct/queue"
 	"github.com/angusgmorrison/sedgewick_algorithms/struct/unionfind"
 )
 
 type KruskalMST struct {
-	mst    *queue.SliceQueue[*ex_edge_weighted_graph.Edge]
+	edges  []*ex_edge_weighted_graph.Edge
 	weight float64
 }
 
-func NewKruskalMST(g *ex_edge_weighted_graph.EdgeWeightedGraph) *KruskalMST {
-	mst := queue.NewSliceQueue[*ex_edge_weighted_graph.Edge]()
-	vertices := g.NVertices()
-	uf := unionfind.NewWeightedQuickUnion(vertices)
-	minPQ := heap.NewHeapFromSlice(g.Edges(), func(a, b *ex_edge_weighted_graph.Edge) bool {
-		return a.Less(b)
+var _ ex_mst.MST = (*KruskalMST)(nil)
+
+func NewKruskalMST(g ex_edge_weighted_graph.EdgeWeightedGraph) *KruskalMST {
+	kruskal := &KruskalMST{
+		edges: make([]*ex_edge_weighted_graph.Edge, 0, g.NVertices()-1), // there are V-1 edges in an MST
+	}
+	kruskal.build(g)
+	return kruskal
+}
+
+func (kruskal *KruskalMST) build(g ex_edge_weighted_graph.EdgeWeightedGraph) {
+	nVertices := g.NVertices()
+	uf := unionfind.NewWeightedQuickUnion(nVertices)                                          // check if vertices are already part of the MST in near-constant time
+	edgePQ := heap.NewHeapFromSlice(g.Edges(), func(a, b *ex_edge_weighted_graph.Edge) bool { // heap of all edges, prioritized by least weight
+		return a.Weight() < b.Weight()
 	})
 
-	var weight float64
-	for edge, ok := minPQ.Pop(); ok && mst.Len() < vertices-1; edge, ok = minPQ.Pop() {
+	// While there is still an edge on the heap and the MST is not complete, find the next-shortest
+	// edge that is not yet part of the MST.
+	for edge, ok := edgePQ.Pop(); ok && len(kruskal.edges) < cap(kruskal.edges); edge, ok = edgePQ.Pop() {
 		v := edge.Either()
 		w, _ := edge.Other(v)
 		if uf.Connected(v, w) {
@@ -29,20 +39,17 @@ func NewKruskalMST(g *ex_edge_weighted_graph.EdgeWeightedGraph) *KruskalMST {
 		}
 
 		uf.Union(v, w)
-		mst.Enqueue(edge)
-		weight += edge.Weight()
-	}
-
-	return &KruskalMST{
-		mst:    mst,
-		weight: weight,
+		kruskal.edges = append(kruskal.edges, edge)
+		kruskal.weight += edge.Weight()
 	}
 }
 
-func (mst *KruskalMST) Edges() *queue.SliceQueue[*ex_edge_weighted_graph.Edge] {
-	return mst.mst
+func (kruskal *KruskalMST) Edges() []*ex_edge_weighted_graph.Edge {
+	edges := make([]*ex_edge_weighted_graph.Edge, len(kruskal.edges))
+	copy(edges, kruskal.edges)
+	return edges
 }
 
-func (mst *KruskalMST) Weight() float64 {
-	return mst.weight
+func (kruskal *KruskalMST) Weight() float64 {
+	return kruskal.weight
 }

@@ -5,26 +5,39 @@ import (
 	"strings"
 )
 
-type EdgeWeightedGraph struct {
+type EdgeWeightedGraph interface {
+	fmt.Stringer
+
+	NVertices() int
+	NEdges() int
+	Edges() []*Edge
+	Adjacent(v int) []*Edge
+	AddEdge(edge *Edge)
+	AddVertex()
+}
+
+type WeightedAdjList struct {
 	edges int
 	adj   [][]*Edge
 }
 
-func NewEdgeWeightedGraph(vertices int) *EdgeWeightedGraph {
-	return &EdgeWeightedGraph{
+var _ EdgeWeightedGraph = (*WeightedAdjList)(nil)
+
+func NewWeightedAdjList(vertices int) *WeightedAdjList {
+	return &WeightedAdjList{
 		adj: make([][]*Edge, vertices),
 	}
 }
 
-func (ewg *EdgeWeightedGraph) NVertices() int {
+func (ewg *WeightedAdjList) NVertices() int {
 	return len(ewg.adj)
 }
 
-func (ewg *EdgeWeightedGraph) NEdges() int {
+func (ewg *WeightedAdjList) NEdges() int {
 	return ewg.edges
 }
 
-func (ewg *EdgeWeightedGraph) AddEdge(e *Edge) {
+func (ewg *WeightedAdjList) AddEdge(e *Edge) {
 	v := e.Either()
 	w, _ := e.Other(v)
 	ewg.adj[v] = append(ewg.adj[v], e)
@@ -32,15 +45,15 @@ func (ewg *EdgeWeightedGraph) AddEdge(e *Edge) {
 	ewg.edges++
 }
 
-func (ewg *EdgeWeightedGraph) AddVertex() {
+func (ewg *WeightedAdjList) AddVertex() {
 	ewg.adj = append(ewg.adj, nil)
 }
 
-func (ewg *EdgeWeightedGraph) Adjacent(v int) []*Edge {
+func (ewg *WeightedAdjList) Adjacent(v int) []*Edge {
 	return ewg.adj[v]
 }
 
-func (ewg *EdgeWeightedGraph) Edges() []*Edge {
+func (ewg *WeightedAdjList) Edges() []*Edge {
 	edges := make([]*Edge, ewg.NVertices())
 	for v, vertexEdges := range ewg.adj {
 		for _, vertexEdge := range vertexEdges {
@@ -53,7 +66,7 @@ func (ewg *EdgeWeightedGraph) Edges() []*Edge {
 	return edges
 }
 
-func (ewg *EdgeWeightedGraph) String() string {
+func (ewg *WeightedAdjList) String() string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "Vertices: %d, Edges: %d\n", ewg.NVertices(), ewg.edges)
 	for v, edges := range ewg.adj {
@@ -101,18 +114,6 @@ func (e *Edge) Other(vertex int) (int, error) {
 		vertex: vertex,
 		edge:   e,
 	}
-}
-
-func (e *Edge) Equal(other *Edge) bool {
-	return e.weight == other.weight
-}
-
-func (e *Edge) Less(other *Edge) bool {
-	return e.weight < other.weight
-}
-
-func (e *Edge) Greater(other *Edge) bool {
-	return e.weight > other.weight
 }
 
 func (e *Edge) String() string {
