@@ -9,9 +9,24 @@ import (
 	"github.com/google/uuid"
 )
 
+type OrderType int
+
+const (
+	OrderTypeBuy OrderType = iota + 1
+	OrderTypeSell
+)
+
 type TickerSymbol string
 
-type order struct {
+// order describes the methods common to all orders.
+type order interface {
+	ID() uuid.UUID
+	Type() OrderType
+	TickerSymbol() TickerSymbol
+}
+
+// orderData contains the fields common to all orders.
+type orderData struct {
 	// Unique identifier.
 	id uuid.UUID
 	// Monotonic sequence number.
@@ -23,19 +38,32 @@ type order struct {
 	quantityFilled  uint64
 }
 
-func (o *order) quantityOutstanding() uint64 {
+func (o *orderData) quantityOutstanding() uint64 {
 	return o.quantityOrdered - o.quantityFilled
 }
 
-func (o *order) isFilled() bool {
+func (o *orderData) isFilled() bool {
 	return o.quantityOrdered == o.quantityFilled
 }
 
 type buyOrder struct {
-	order
+	orderData
 }
 
+var _ order = (*buyOrder)(nil)
 var _ heap.Prioritizable[*buyOrder] = (*buyOrder)(nil)
+
+func (bo *buyOrder) ID() uuid.UUID {
+	return bo.id
+}
+
+func (bo *buyOrder) Type() OrderType {
+	return OrderTypeBuy
+}
+
+func (bo *buyOrder) TickerSymbol() TickerSymbol {
+	return bo.tickerSymbol
+}
 
 // HasPriority prioritizes buyOrders with the highest bid followed by the lowest sequence ID.
 func (a *buyOrder) HasPriority(b *buyOrder) bool {
@@ -47,7 +75,21 @@ func (a *buyOrder) HasPriority(b *buyOrder) bool {
 }
 
 type sellOrder struct {
-	order
+	orderData
+}
+
+var _ order = (*sellOrder)(nil)
+
+func (so *sellOrder) ID() uuid.UUID {
+	return so.id
+}
+
+func (so *sellOrder) Type() OrderType {
+	return OrderTypeSell
+}
+
+func (so *sellOrder) TickerSymbol() TickerSymbol {
+	return so.tickerSymbol
 }
 
 var _ heap.Prioritizable[*sellOrder] = (*sellOrder)(nil)
@@ -119,29 +161,24 @@ type book struct {
 	// orders and ensure monotonic order execution.
 	lastSequenceID uint64
 	// sellOrderHeaps maps a TickerSymbol to a heap of all unfilled sell orders for that stock.
-	sellOrderHeaps map[TickerSymbol]*heap.IndexedHeap[*sellOrder]
+	sellOrderHeaps map[TickerSymbol]*heap.SymbolHeap[uuid.UUID, *sellOrder]
 	// sellOrderHeaps maps a TickerSymbol to a heap of all unfilled buy orders for that stock.
-	buyOrderHeaps map[TickerSymbol]*heap.IndexedHeap[*buyOrder]
-	// sellOrderLedger maps each sellOrder ID to an indexed order, allowing constant-time find
-	// operations in the order's corresponding heap. This supports order cancellation in logarithmic
-	// time.
-	sellOrderLedger map[uuid.UUID]*heap.IndexedEntry[*sellOrder]
-	// buyOrderLedger maps each buyOrder ID to an indexed order.
-	buyOrderLedger map[uuid.UUID]*heap.IndexedEntry[*buyOrder]
+	buyOrderHeaps map[TickerSymbol]*heap.SymbolHeap[uuid.UUID, *buyOrder]
+	// ledger maps an ID to an order for constant-time lookup of any order, regardless of type.
+	ledger map[uuid.UUID]order
 }
 
 func newBook() *book {
 	return &book{
-		sellOrderHeaps:  make(map[TickerSymbol]*heap.IndexedHeap[*sellOrder]),
-		buyOrderHeaps:   make(map[TickerSymbol]*heap.IndexedHeap[*buyOrder]),
-		sellOrderLedger: make(map[uuid.UUID]*heap.IndexedEntry[*sellOrder]),
-		buyOrderLedger:  make(map[uuid.UUID]*heap.IndexedEntry[*buyOrder]),
+		sellOrderHeaps: make(map[TickerSymbol]*heap.SymbolHeap[uuid.UUID, *sellOrder]),
+		buyOrderHeaps:  make(map[TickerSymbol]*heap.SymbolHeap[uuid.UUID, *buyOrder]),
+		ledger:         make(map[uuid.UUID]order),
 	}
 }
 
 type SequenceError struct {
 	wantSequenceID uint64
-	order          order
+	order          orderData
 }
 
 func (e *SequenceError) Error() string {
@@ -152,43 +189,35 @@ func (b *book) executeBuyOrder(bo *buyOrder) error {
 	if bo.sequenceID != b.lastSequenceID+1 {
 		return &SequenceError{
 			wantSequenceID: b.lastSequenceID + 1,
-			order:          bo.order,
+			order:          bo.orderData,
 		}
 	}
 	b.lastSequenceID++
 
 	sellOrdersForStock, ok := b.sellOrderHeaps[bo.tickerSymbol]
 	if !ok || sellOrdersForStock.IsEmpty() { // no sell orders exist, book the buy order for later
-		if err := b.bookBuyOrder(bo); err != nil {
-			return err
-		}
+		b.bookBuyOrder(bo)
 		return nil // notify counterparties that order has been registered
 	}
 
-	so, _ := sellOrdersForStock.Pop()
+	_, so, _ := sellOrdersForStock.Pop()
 	for bo.priceCents >= so.priceCents {
 		b.fillOrderPair(bo, so)
 
-		if so.isFilled() {
-			delete(b.sellOrderLedger, so.id)
-		}
-
 		if bo.isFilled() {
 			if !so.isFilled() {
-				sellOrdersForStock.Push(so)
+				sellOrdersForStock.Push(so.id, so) // TODO: Peek and only pop if order is filled
 			}
 			return nil // notify counterparties...
 		}
 
-		if so, ok = sellOrdersForStock.Pop(); !ok { // no more sell orders
+		if _, so, ok = sellOrdersForStock.Pop(); !ok { // no more sell orders
 			break
 		}
 	}
 
 	// Unable to fill buy order at the currently available prices.
-	if err := b.bookBuyOrder(bo); err != nil {
-		return err
-	}
+	b.bookBuyOrder(bo)
 	return nil // notify...
 }
 
@@ -196,88 +225,58 @@ func (b *book) executeSellOrder(so *sellOrder) error {
 	if so.sequenceID != b.lastSequenceID+1 {
 		return &SequenceError{
 			wantSequenceID: b.lastSequenceID + 1,
-			order:          so.order,
+			order:          so.orderData,
 		}
 	}
 	b.lastSequenceID++
 
 	buyOrdersForStock, ok := b.buyOrderHeaps[so.tickerSymbol]
 	if !ok || buyOrdersForStock.IsEmpty() {
-		if err := b.bookSellOrder(so); err != nil {
-			return err
-		}
+		b.bookSellOrder(so)
 		return nil // notify...
 	}
 
-	bo, _ := buyOrdersForStock.Pop()
+	_, bo, _ := buyOrdersForStock.Pop() // TODO: Peek and only pop if order is filled
 	for so.priceCents <= bo.priceCents {
 		b.fillOrderPair(bo, so)
 
-		if bo.isFilled() {
-			delete(b.buyOrderLedger, bo.id)
-		}
-
 		if so.isFilled() {
 			if !bo.isFilled() {
-				buyOrdersForStock.Push(bo)
+				buyOrdersForStock.Push(bo.id, bo)
 			}
 			return nil // notify
 		}
 
-		if bo, ok = buyOrdersForStock.Pop(); !ok { // no more buy orders
+		if _, bo, ok = buyOrdersForStock.Pop(); !ok { // no more buy orders
 			break
 		}
 	}
 
 	// Unable to fill sell order at the currently available prices.
-	if err := b.bookSellOrder(so); err != nil {
-		return err
-	}
+	b.bookSellOrder(so)
 	return nil // notify
 }
 
-// OrderDoubleBookedError indicates an attempt to book the same order twice, which should never
-// happen.
-type OrderDoubleBookedError struct {
-	order order
-}
-
-func (e *OrderDoubleBookedError) Error() string {
-	return fmt.Sprintf("attempted to book order that was already in ledger: %+v", e.order)
-}
-
-func (b *book) bookBuyOrder(bo *buyOrder) error {
-	if _, ok := b.buyOrderLedger[bo.id]; ok {
-		return &OrderDoubleBookedError{order: bo.order}
-	}
-
+func (b *book) bookBuyOrder(bo *buyOrder) {
 	buyOrdersForStock, ok := b.buyOrderHeaps[bo.tickerSymbol]
 	if !ok {
-		buyOrdersForStock = heap.NewIndexedHeap[*buyOrder]()
+		buyOrdersForStock = heap.NewSymbolHeap[uuid.UUID, *buyOrder]()
 		b.buyOrderHeaps[bo.tickerSymbol] = buyOrdersForStock
 	}
 
-	indexedBO := buyOrdersForStock.Push(bo)
-	b.buyOrderLedger[bo.id] = indexedBO
-
-	return nil
+	b.ledger[bo.id] = bo
+	buyOrdersForStock.Push(bo.id, bo)
 }
 
-func (b *book) bookSellOrder(so *sellOrder) error {
-	if _, ok := b.sellOrderLedger[so.id]; ok {
-		return &OrderDoubleBookedError{order: so.order}
-	}
-
+func (b *book) bookSellOrder(so *sellOrder) {
 	sellOrdersForStock, ok := b.sellOrderHeaps[so.tickerSymbol]
 	if !ok {
-		sellOrdersForStock = heap.NewIndexedHeap[*sellOrder]()
+		sellOrdersForStock = heap.NewSymbolHeap[uuid.UUID, *sellOrder]()
 		b.sellOrderHeaps[so.tickerSymbol] = sellOrdersForStock
 	}
 
-	indexedSO := sellOrdersForStock.Push(so)
-	b.sellOrderLedger[so.id] = indexedSO
-
-	return nil
+	b.ledger[so.id] = so
+	sellOrdersForStock.Push(so.id, so)
 }
 
 func (b *book) fillOrderPair(bo *buyOrder, so *sellOrder) {
@@ -295,51 +294,47 @@ func (e *OrderNotInLedgerError) Error() string {
 }
 
 func (b *book) cancelOrder(id uuid.UUID) error {
-	indexedSO, ok := b.sellOrderLedger[id]
-	if ok {
-		return b.cancelSellOrderAtIndex(indexedSO.Entry(), indexedSO.Index())
-	}
-
-	indexedBO, ok := b.buyOrderLedger[id]
-	if ok {
-		return b.cancelBuyOrderAtIndex(indexedBO.Entry(), indexedBO.Index())
-	}
-
-	return &OrderNotInLedgerError{id: id}
-}
-
-type OrderNotInHeapError struct {
-	order order
-	index int
-}
-
-func (e *OrderNotInHeapError) Error() string {
-	return fmt.Sprintf("order with ID %s not found at heap index %d: %+v", e.order.id, e.index, e.order)
-}
-
-func (b *book) cancelSellOrderAtIndex(so *sellOrder, i int) error {
-	sellOrdersForStock, ok := b.sellOrderHeaps[so.tickerSymbol]
+	order, ok := b.ledger[id]
 	if !ok {
-		return &OrderNotInHeapError{order: so.order, index: i}
+		return &OrderNotInLedgerError{id: id}
 	}
 
-	if _, ok := sellOrdersForStock.Remove(i); !ok {
-		return &OrderNotInHeapError{order: so.order, index: i}
+	switch order.Type() {
+	case OrderTypeBuy:
+		b.cancelBuyOrder(id, order.TickerSymbol())
+	case OrderTypeSell:
+		b.cancelSellOrder(id, order.TickerSymbol())
+	default:
+		panic(fmt.Errorf("unknown order type %d", order.Type()))
 	}
-
 	return nil
 }
 
-func (b *book) cancelBuyOrderAtIndex(bo *buyOrder, i int) error {
-	buyOrdersForStock, ok := b.buyOrderHeaps[bo.tickerSymbol]
-	if !ok {
-		return &OrderNotInHeapError{order: bo.order, index: i}
+type OrderNotFoundError struct {
+	orderID uuid.UUID
+}
+
+func (e *OrderNotFoundError) Error() string {
+	return fmt.Sprintf("order with ID %s not found", e.orderID)
+}
+
+func (b *book) cancelSellOrder(id uuid.UUID, sym TickerSymbol) error {
+	sellOrdersForStock, ok := b.sellOrderHeaps[sym]
+	if !ok || !sellOrdersForStock.Contains(id) {
+		return &OrderNotFoundError{orderID: id}
 	}
 
-	if _, ok := buyOrdersForStock.Remove(i); !ok {
-		return &OrderNotInHeapError{order: bo.order, index: i}
+	sellOrdersForStock.Delete(id)
+	return nil
+}
+
+func (b *book) cancelBuyOrder(id uuid.UUID, sym TickerSymbol) error {
+	buyOrdersForStock, ok := b.buyOrderHeaps[sym]
+	if !ok || !buyOrdersForStock.Contains(id) {
+		return &OrderNotFoundError{orderID: id}
 	}
 
+	buyOrdersForStock.Delete(id)
 	return nil
 }
 
