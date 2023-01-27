@@ -84,112 +84,129 @@ type Prioritizable[E any] interface {
 	HasPriority(other E) bool
 }
 
-// IndexedEntry associates a heap entry with its index in the heap's underlying slice. This
-// facilitates random deletions from the heap in constant time using (*IndexedHeap).Remove, since we
-// don't have to search from the root to locate the order.
-type IndexedEntry[E Prioritizable[E]] struct {
-	index int
-	entry E
+type SymbolHeap[K comparable, V Prioritizable[V]] struct {
+	data    []V
+	indices map[K]int // maps a key K to its index in data
+	keys    []K       // maps an index in data to a key
 }
 
-func (i *IndexedEntry[E]) Index() int {
-	return i.index
-}
-
-func (i *IndexedEntry[E]) Entry() E {
-	return i.entry
-}
-
-// hasPriority satisfies prioritizable.
-func (a *IndexedEntry[E]) HasPriority(b *IndexedEntry[E]) bool {
-	return a.entry.HasPriority(b.entry)
-}
-
-type IndexedHeap[E Prioritizable[E]] struct {
-	data []*IndexedEntry[E]
-}
-
-func NewIndexedHeap[E Prioritizable[E]]() *IndexedHeap[E] {
-	return &IndexedHeap[E]{}
-}
-
-func (h *IndexedHeap[E]) Size() int {
-	return len(h.data)
-}
-
-func (h *IndexedHeap[E]) IsEmpty() bool {
-	return len(h.data) == 0
-}
-
-func (h *IndexedHeap[E]) Push(entry E) *IndexedEntry[E] {
-	indexedEntry := &IndexedEntry[E]{
-		index: len(h.data),
-		entry: entry,
-	}
-	h.data = append(h.data, indexedEntry)
-	h.swim(len(h.data) - 1)
-
-	return indexedEntry
-}
-
-func (h *IndexedHeap[E]) Pop() (E, bool) {
-	return h.removeIth(0)
-}
-
-func (h *IndexedHeap[E]) Peek() (E, bool) {
-	if h.IsEmpty() {
-		return *new(E), false
-	}
-
-	return h.data[0].entry, true
-}
-
-func (h *IndexedHeap[E]) Remove(i int) (E, bool) {
-	return h.removeIth(i)
-}
-
-func (h *IndexedHeap[E]) removeIth(i int) (E, bool) {
-	if i >= len(h.data) {
-		return *new(E), false
-	}
-
-	removed := h.data[i]
-	h.data[i] = nil // avoid loitering
-	h.swap(i, len(h.data)-1)
-	h.data = h.data[:len(h.data)-1]
-	h.sink(i)
-
-	return removed.entry, true
-}
-
-func (h *IndexedHeap[E]) swim(i int) {
-	for ; i > 0 && h.hasPriority(i, (i-1)/2); i = (i - 1) / 2 {
-		h.swap(i, (i-1)/2)
+func NewSymbolHeap[K comparable, V Prioritizable[V]]() *SymbolHeap[K, V] {
+	return &SymbolHeap[K, V]{
+		indices: make(map[K]int),
 	}
 }
 
-func (h *IndexedHeap[E]) sink(i int) {
-	for 2*i+1 < len(h.data) {
-		j := 2*i + 1
-		if j < len(h.data)-1 && h.hasPriority(j+1, j) { // select i's highest-priority child
-			j++
+func (sh *SymbolHeap[K, V]) Size() int {
+	return len(sh.data)
+}
+
+func (sh *SymbolHeap[K, V]) IsEmpty() bool {
+	return sh.Size() == 0
+}
+
+func (sh *SymbolHeap[K, V]) Contains(key K) bool {
+	_, ok := sh.indices[key]
+	return ok
+}
+
+// Push pushes val onto the heap and returns its index. If a value corresponding to key already
+// exists on the heap, the value is updated.
+func (sh *SymbolHeap[K, V]) Push(key K, val V) {
+	if sh.Contains(key) {
+		sh.Update(key, val)
+		return
+	}
+
+	sh.keys = append(sh.keys, key)
+	sh.data = append(sh.data, val)
+	lastIdx := len(sh.data) - 1
+	sh.indices[key] = lastIdx
+	sh.swim(lastIdx)
+}
+
+func (sh *SymbolHeap[K, V]) Pop() (K, V, bool) {
+	if sh.Size() == 0 {
+		return *new(K), *new(V), false
+	}
+
+	val := sh.data[0]
+	key := sh.keys[0]
+	sh.delete(0)
+
+	return key, val, true
+}
+
+// Delete removes the value associated with key and restores the heap. Deleting a key that is not in
+// the heap has no effect.
+func (sh *SymbolHeap[K, V]) Delete(key K) (V, bool) {
+	if !sh.Contains(key) {
+		return *new(V), false
+	}
+
+	idx := sh.indices[key]
+	val := sh.data[idx]
+	sh.delete(idx)
+
+	return val, true
+}
+
+// Update updates the current value at key and restores the heap. If no value exists for the key, it
+// is inserted using Push.
+func (sh *SymbolHeap[K, V]) Update(key K, val V) {
+	if !sh.Contains(key) {
+		sh.Push(key, val)
+		return
+	}
+
+	idx := sh.indices[key]
+	sh.data[idx] = val
+	sh.swim(idx) // if the new val has priority over the old one, it will rise
+	sh.sink(idx) // otherwise it will sink
+}
+
+// delete removes the key and value corresponding to the given heap index and restores the heap.
+func (sh *SymbolHeap[K, V]) delete(idx int) {
+	delete(sh.indices, sh.keys[idx])
+	last := len(sh.data) - 1
+	sh.swap(idx, last)
+
+	// Truncate the slices without loitering.
+	sh.data[last], sh.data = *new(V), sh.data[:last]
+	sh.keys[last], sh.keys = *new(K), sh.keys[:last]
+
+	// Restore the heap.
+	sh.sink(idx)
+}
+
+func (sh *SymbolHeap[K, V]) swim(idx int) {
+	for ; idx > 0 && sh.hasPriority(idx, (idx-1)/2); idx = (idx - 1) / 2 {
+		sh.swap(idx, (idx-1)/2)
+	}
+}
+
+func (sh *SymbolHeap[K, V]) sink(idx int) {
+	for idx*2+1 < len(sh.data) {
+		maxPriorityChild := idx*2 + 1
+		if maxPriorityChild < len(sh.data)-1 && sh.hasPriority(maxPriorityChild+1, maxPriorityChild) {
+			maxPriorityChild++
 		}
 
-		if !h.hasPriority(j, i) {
+		if !sh.hasPriority(maxPriorityChild, idx) {
 			break
 		}
 
-		h.swap(i, j)
-		i = j
+		sh.swap(idx, maxPriorityChild)
+		idx = maxPriorityChild
 	}
 }
 
-func (h *IndexedHeap[E]) hasPriority(i, j int) bool {
-	return h.data[i].HasPriority(h.data[j])
+func (sh *SymbolHeap[K, V]) hasPriority(i, j int) bool {
+	return sh.data[i].HasPriority(sh.data[j])
 }
 
-func (h *IndexedHeap[E]) swap(i, j int) {
-	h.data[i], h.data[j] = h.data[j], h.data[i]
-	h.data[i].index = i
-	h.data[j].index = j
+func (sh *SymbolHeap[K, V]) swap(i, j int) {
+	iKey, jKey := sh.keys[i], sh.keys[j]
+	sh.data[i], sh.data[j] = sh.data[j], sh.data[i]
+	sh.keys[i], sh.keys[j] = sh.keys[j], sh.keys[i]
+	sh.indices[iKey], sh.indices[jKey] = j, i
 }
