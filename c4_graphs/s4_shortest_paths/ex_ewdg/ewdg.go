@@ -10,6 +10,14 @@ type DirectedEdge struct {
 	weight   float64
 }
 
+func NewDirectedEdge(from, to int, weight float64) *DirectedEdge {
+	return &DirectedEdge{
+		from:   from,
+		to:     to,
+		weight: weight,
+	}
+}
+
 func (de *DirectedEdge) From() int {
 	return de.from
 }
