@@ -154,6 +154,108 @@ func (udsp *UndirectedDijkstraSP) WeightTo(v int) float64 {
 	return udsp.weightTo[v]
 }
 
+type SourceSinkDijkstraSP struct {
+	sink     int
+	edgeTo   []*ex_ewdg.DirectedEdge
+	weightTo []float64
+	weightPQ *heap.SymbolHeap[int, prioritizableWeight]
+}
+
+func NewSourceSinkDijkstraSP(g ex_ewdg.EdgeWeightedDigraph, source, sink int) *SourceSinkDijkstraSP {
+	vertices := g.V()
+	ssdsp := &SourceSinkDijkstraSP{
+		sink:     sink,
+		edgeTo:   make([]*ex_ewdg.DirectedEdge, vertices),
+		weightTo: make([]float64, vertices),
+		weightPQ: heap.NewSymbolHeap[int, prioritizableWeight](),
+	}
+
+	for v := range ssdsp.weightTo {
+		ssdsp.weightTo[v] = math.Inf(1)
+	}
+	ssdsp.weightTo[source] = 0
+	ssdsp.weightPQ.Push(source, 0)
+
+	for v, _, ok := ssdsp.weightPQ.Pop(); ok; v, _, ok = ssdsp.weightPQ.Pop() {
+		if v == sink {
+			break
+		}
+
+		ssdsp.relax(g, v)
+	}
+
+	return ssdsp
+}
+
+func (ssdsp *SourceSinkDijkstraSP) HasPathToSink() bool {
+	return !math.IsInf(ssdsp.weightTo[ssdsp.sink], 1)
+}
+
+func (ssdsp *SourceSinkDijkstraSP) PathToSink() []*ex_ewdg.DirectedEdge {
+	if !ssdsp.HasPathToSink() {
+		return nil
+	}
+
+	var edges []*ex_ewdg.DirectedEdge
+	for edge := ssdsp.edgeTo[ssdsp.sink]; edge != nil; edge = ssdsp.edgeTo[edge.From()] {
+		edges = append(edges, edge)
+	}
+	reverse(edges)
+
+	return edges
+}
+
+func (ssdsp *SourceSinkDijkstraSP) WeightToSink() float64 {
+	return ssdsp.weightTo[ssdsp.sink]
+}
+
+func (ssdsp *SourceSinkDijkstraSP) PathTo(v int)
+
+func (ssdsp *SourceSinkDijkstraSP) relax(g ex_ewdg.EdgeWeightedDigraph, v int) {
+	for _, edge := range g.Adj(v) {
+		w := edge.To()
+		candidateWeight := ssdsp.weightTo[v] + edge.Weight()
+		if candidateWeight < ssdsp.weightTo[w] {
+			ssdsp.edgeTo[w] = edge
+			ssdsp.weightTo[w] = candidateWeight
+			ssdsp.weightPQ.Update(w, prioritizableWeight(candidateWeight))
+		}
+	}
+}
+
+// Calculates the shortest path between any pair of vertices using V^2 space (each DijkstraSP
+// requires V space, and we need one for each vertex), and VElogV time (we calculate V DijkstraSPs,
+// each of which may perform an operation on a heap of V weights for each edge in the graph in the
+// worst case).
+type AllPairsDijkstraSP struct {
+	dijkstraSPs []*DijkstraSP
+}
+
+func NewAllPairsDijkstraSP(g ex_ewdg.EdgeWeightedDigraph) *AllPairsDijkstraSP {
+	vertices := g.V()
+	allPairs := &AllPairsDijkstraSP{
+		dijkstraSPs: make([]*DijkstraSP, vertices),
+	}
+
+	for v := 0; v < vertices; v++ {
+		allPairs.dijkstraSPs[v] = NewDijkstraSP(g, v)
+	}
+
+	return allPairs
+}
+
+func (ap *AllPairsDijkstraSP) HasPath(from, to int) bool {
+	return ap.dijkstraSPs[from].HasPathTo(to)
+}
+
+func (ap *AllPairsDijkstraSP) PathBetween(from, to int) []*ex_ewdg.DirectedEdge {
+	return ap.dijkstraSPs[from].PathTo(to)
+}
+
+func (ap *AllPairsDijkstraSP) WeightBetween(from, to int) float64 {
+	return ap.dijkstraSPs[from].WeightTo(to)
+}
+
 type prioritizableWeight float64
 
 var _ heap.Prioritizable[prioritizableWeight] = prioritizableWeight(0)
