@@ -42,6 +42,14 @@ type AdjListEWDG struct {
 	e       int
 }
 
+var _ EdgeWeightedDigraph = (*AdjListEWDG)(nil)
+
+func NewWeightedAdjList(v int) *AdjListEWDG {
+	return &AdjListEWDG{
+		adjList: make([][]*DirectedEdge, v),
+	}
+}
+
 func (al *AdjListEWDG) V() int {
 	return len(al.adjList)
 }
