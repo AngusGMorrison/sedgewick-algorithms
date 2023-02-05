@@ -46,6 +46,8 @@ func NewAcyclicSP(g ex_ewdg.EdgeWeightedDigraph, source int) (*AcyclicSP, error)
 func (asp *AcyclicSP) relax(g ex_ewdg.EdgeWeightedDigraph, v int) {
 	for _, edge := range g.Adj(v) {
 		w := edge.To()
+		// If we have not yet reached the source while iterating through the topological ordering,
+		// weightTo[v] will be Inf, so candidateWeight will also be Inf.
 		candidateWeight := asp.weightTo[v] + edge.Weight()
 		if candidateWeight < asp.weightTo[w] {
 			asp.edgeTo[w] = edge
@@ -54,6 +56,9 @@ func (asp *AcyclicSP) relax(g ex_ewdg.EdgeWeightedDigraph, v int) {
 	}
 }
 
+// All distances are measured relative to the source, so if a node is not reachable from the source
+// (i.e. it is not connected to the source or comes before the source in topological order), its
+// path weight will always be Inf.
 func (asp *AcyclicSP) HasPathTo(v int) bool {
 	return !math.IsInf(asp.weightTo[v], 1)
 }
