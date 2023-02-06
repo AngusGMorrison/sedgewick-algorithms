@@ -33,6 +33,8 @@ func (bfp *BreadthFirstPaths) bfs(g ex_graph.Graph, source int) {
 				continue
 			}
 
+			// w must be marked as seen before being put on the queue, or multiple copies may end up
+			// on the queue before the first is processed.
 			bfp.seen[w] = true
 			bfp.edgeTo[w] = v
 			q.Enqueue(w)
