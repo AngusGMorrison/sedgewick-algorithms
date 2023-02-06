@@ -1,9 +1,12 @@
 package ex_cycle_detector
 
-import "github.com/angusgmorrison/sedgewick_algorithms/c4_graphs/s4_shortest_paths/ex_ewdg"
+import (
+	"github.com/angusgmorrison/sedgewick_algorithms/c4_graphs/s4_shortest_paths/ex_ewdg"
+	"github.com/angusgmorrison/sedgewick_algorithms/struct/stack"
+)
 
 type CycleDetector struct {
-	cycle []*ex_ewdg.DirectedEdge
+	cycle *stack.SliceStack[*ex_ewdg.DirectedEdge]
 }
 
 func NewCycleDetector(g ex_ewdg.EdgeWeightedDigraph) *CycleDetector {
@@ -32,11 +35,8 @@ func (cd *CycleDetector) detect(g ex_ewdg.EdgeWeightedDigraph) {
 					return
 				}
 			} else if onStack[w] {
-				cd.cycle = append(cd.cycle, edge)
-				for prev := edgeTo[v]; prev != edge; prev = edgeTo[prev.From()] {
-					cd.cycle = append(cd.cycle, prev)
-				}
-				cd.cycle = append(cd.cycle, edge)
+				edgeTo[w] = edge
+				cd.buildCycleThrough(v, w, edgeTo)
 				return
 			}
 		}
@@ -54,10 +54,28 @@ func (cd *CycleDetector) detect(g ex_ewdg.EdgeWeightedDigraph) {
 	}
 }
 
+func (cd *CycleDetector) buildCycleThrough(v, w int, edgeTo []*ex_ewdg.DirectedEdge) {
+	cycle := stack.NewSliceStack[*ex_ewdg.DirectedEdge]()
+	for edge := edgeTo[v]; edge != edgeTo[w]; edge = edgeTo[edge.From()] {
+		cycle.Push(edge)
+	}
+	cycle.Push(edgeTo[w])
+	cycle.Push(edgeTo[v])
+	cd.cycle = cycle
+}
+
 func (cd *CycleDetector) HasCycle() bool {
 	return cd.cycle != nil
 }
 
 func (cd *CycleDetector) Cycle() []*ex_ewdg.DirectedEdge {
-	return cd.cycle
+	if !cd.HasCycle() {
+		return nil
+	}
+
+	result := make([]*ex_ewdg.DirectedEdge, 0, cd.cycle.Len())
+	cd.cycle.Each(func(e *ex_ewdg.DirectedEdge) {
+		result = append(result, e)
+	})
+	return result
 }
