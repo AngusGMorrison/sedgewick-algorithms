@@ -33,18 +33,31 @@ func NewBellmanFordSP(g ex_ewdg.EdgeWeightedDigraph, source int) *BellmanFordSP 
 
 	bf.queue.Enqueue(source)
 	bf.onQueue[source] = true
+	bf.queue.Enqueue(math.MinInt) // marker indicating the end of a pass through the graph
 
-	for bf.queue.Len() > 0 && !bf.HasNegativeCycle() {
+	for bf.queue.Len() > 0 {
 		v, _ := bf.queue.Dequeue()
-		bf.onQueue[v] = false
-		bf.relax(g, v)
+		if v == math.MinInt { // we've completed a pass through the queue
+			bf.passes++
+			// If we've made > V-1 passes, there must be a negative cycle, since any shortest path
+			// in a graph without a negative cycle has at most V-1 edges.
+			if bf.passes == vertices {
+				bf.findNegativeCycle()
+				break
+			}
+			// Mark the end of the next pass.
+			bf.queue.Enqueue(math.MinInt)
+		} else {
+			bf.onQueue[v] = false
+			bf.relax(g, v)
+		}
 	}
 
 	return bf
 }
 
 func (bf *BellmanFordSP) HasNegativeCycle() bool {
-	return bf.negativeCD != nil
+	return bf.negativeCD.HasCycle()
 }
 
 func (bf *BellmanFordSP) relax(g ex_ewdg.EdgeWeightedDigraph, v int) {
@@ -58,14 +71,6 @@ func (bf *BellmanFordSP) relax(g ex_ewdg.EdgeWeightedDigraph, v int) {
 				bf.queue.Enqueue(w)
 				bf.onQueue[w] = true
 			}
-		}
-
-		bf.passes++
-		// In a graph with no negative cycles, a shortest path has at most V-1 edges requiring V-1
-		// passes to find. If we've made V passes, then certain vertices are being readded to the
-		// queue in a loop, indicating that a negative cycle must be present.
-		if bf.passes%g.V() == 0 {
-			bf.findNegativeCycle()
 		}
 	}
 }
