@@ -3,9 +3,9 @@ package ex_bipartite
 import "github.com/angusgmorrison/sedgewick_algorithms/c4_graphs/s1_undirected_graphs/ex_graph"
 
 func IsBipartite(g ex_graph.Graph) bool {
-	vertices := g.V()
-	seen := make([]bool, g.V())
-	color := make([]bool, g.V())
+	vertices := g.Vertices()
+	seen := make([]bool, vertices)
+	color := make([]bool, vertices)
 	isBipartite := true
 
 	var visit func(v int)
